@@ -2,7 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Dialog,
-  DialogContent
+  DialogContent,
+  DialogTitle,
+  DialogHeader
 } from '@/components/ui/dialog';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
@@ -477,6 +479,9 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
         className="w-[95vw] max-w-[800px] h-[500px] p-0 bg-black border-primary/30 shadow-[0_0_30px_rgba(0,255,128,0.15)] rounded-lg"
         onInteractOutside={(e) => e.preventDefault()} // Prevent closing on outside click
       >
+        <DialogHeader>
+          <DialogTitle className="sr-only">Command Terminal</DialogTitle>
+        </DialogHeader>
         <div 
           className="terminal-window flex flex-col h-full w-full rounded-lg bg-black overflow-hidden font-mono"
         >
