@@ -161,6 +161,52 @@
     box-shadow: 0 0 15px hsla(var(--primary), 0.4);
     transition: all 0.2s ease;
   }
+
+  /* Dashboard stat card */
+  .stat-card {
+    @apply relative overflow-hidden rounded-lg border border-border/40 bg-card/50 p-4 backdrop-blur-sm transition-all duration-300;
+  }
+
+  .stat-card:hover {
+    @apply border-primary/30 shadow-[0_0_15px_rgba(0,255,128,0.1)];
+  }
+
+  .stat-card::before {
+    content: '';
+    @apply absolute top-0 left-0 h-1 w-full bg-gradient-to-r;
+  }
+
+  .stat-card.primary::before {
+    @apply from-primary/40 to-primary/60;
+  }
+
+  .stat-card.accent::before {
+    @apply from-accent/40 to-accent/60;
+  }
+
+  .stat-card.warning::before {
+    @apply from-yellow-500/40 to-yellow-500/60;
+  }
+
+  .stat-card.info::before {
+    @apply from-blue-500/40 to-blue-500/60;
+  }
+}
+
+/* Cult theme specific animations */
+@keyframes orbit {
+  from { transform: rotate(0deg) translateX(64px) rotate(0deg); }
+  to { transform: rotate(360deg) translateX(64px) rotate(-360deg); }
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+@keyframes float-symbol {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
 }
 
 @keyframes glitch-1 {
@@ -182,4 +228,15 @@
 @keyframes shimmer {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(100%); }
+}
+
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
 }
