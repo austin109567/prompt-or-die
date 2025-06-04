@@ -94,7 +94,7 @@ const PromptSharing = ({ promptId, trigger }: PromptSharingProps) => {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger || (
-          <Button variant="outline" className="gap-2">
+          <Button variant="outline\" className="gap-2">
             <Share2 className="h-4 w-4" />
             Share
           </Button>
