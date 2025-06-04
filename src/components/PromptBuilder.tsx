@@ -54,19 +54,23 @@ const PromptBuilder = ({ initialBlocks = [] }: PromptBuilderProps) => {
       value: 'Enter your prompt instruction here...'
     };
     setBlocks([...blocks, newBlock]);
+    console.log('Added new block:', newBlock);
   };
 
   const removeBlock = (id: string) => {
+    console.log('Removing block:', id);
     setBlocks(blocks.filter(block => block.id !== id));
   };
 
   const updateBlock = (updatedBlock: PromptBlockProps) => {
+    console.log('Updating block:', updatedBlock);
     setBlocks(blocks.map(block => 
       block.id === updatedBlock.id ? updatedBlock : block
     ));
   };
 
   const duplicateBlock = (blockToDuplicate: PromptBlockProps) => {
+    console.log('Duplicating block:', blockToDuplicate);
     const duplicatedBlock: PromptBlockProps = {
       ...blockToDuplicate,
       id: Date.now().toString(),
@@ -84,6 +88,7 @@ const PromptBuilder = ({ initialBlocks = [] }: PromptBuilderProps) => {
   };
 
   const shuffleBlocks = () => {
+    console.log('Shuffling blocks');
     const shuffled = [...blocks].sort(() => Math.random() - 0.5);
     setBlocks(shuffled);
     toast({
@@ -93,6 +98,7 @@ const PromptBuilder = ({ initialBlocks = [] }: PromptBuilderProps) => {
   };
 
   const handleDragStart = (index: number) => {
+    console.log('Drag start:', index);
     setDraggedIndex(index);
   };
 
@@ -102,6 +108,7 @@ const PromptBuilder = ({ initialBlocks = [] }: PromptBuilderProps) => {
 
   const handleDrop = (e: React.DragEvent, dropIndex: number) => {
     e.preventDefault();
+    console.log('Drop at index:', dropIndex, 'from:', draggedIndex);
     if (draggedIndex === null) return;
 
     const newBlocks = [...blocks];
@@ -114,6 +121,7 @@ const PromptBuilder = ({ initialBlocks = [] }: PromptBuilderProps) => {
   };
 
   const generatePrompt = () => {
+    console.log('Generating prompt with blocks:', blocks);
     if (blocks.length === 0) {
       toast({
         title: "No blocks found",
@@ -128,6 +136,7 @@ const PromptBuilder = ({ initialBlocks = [] }: PromptBuilderProps) => {
       .join('\n\n');
     
     setGeneratedPrompt(prompt);
+    console.log('Generated prompt:', prompt);
     toast({
       title: "Prompt generated!",
       description: "Your modular prompt is ready for use."
@@ -135,6 +144,7 @@ const PromptBuilder = ({ initialBlocks = [] }: PromptBuilderProps) => {
   };
 
   const copyToClipboard = async () => {
+    console.log('Copying to clipboard');
     if (!generatedPrompt) {
       toast({
         title: "Nothing to copy",
@@ -153,6 +163,7 @@ const PromptBuilder = ({ initialBlocks = [] }: PromptBuilderProps) => {
         description: "Prompt copied to clipboard."
       });
     } catch (err) {
+      console.error('Copy failed:', err);
       toast({
         title: "Copy failed",
         description: "Could not copy to clipboard.",
@@ -162,6 +173,7 @@ const PromptBuilder = ({ initialBlocks = [] }: PromptBuilderProps) => {
   };
 
   const exportPrompt = () => {
+    console.log('Exporting prompt');
     if (!generatedPrompt) {
       toast({
         title: "Nothing to export",
