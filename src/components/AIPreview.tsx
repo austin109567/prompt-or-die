@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Bot, Loader2, RefreshCw } from "lucide-react";
+import { generateAIResponse } from "@/lib/openai";
 
 interface AIPreviewProps {
   promptText: string;
@@ -12,9 +13,9 @@ interface AIPreviewProps {
 const AIPreview = ({ promptText, onRegenerate }: AIPreviewProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [aiResponse, setAiResponse] = useState("");
-  const [selectedModel, setSelectedModel] = useState("gpt-4");
+  const [selectedModel, setSelectedModel] = useState<"gpt-4" | "claude" | "llama">("gpt-4");
   
-  // Simulate AI response generation
+  // Generate AI response when promptText changes
   useEffect(() => {
     if (!promptText) {
       setAiResponse("");
@@ -24,16 +25,41 @@ const AIPreview = ({ promptText, onRegenerate }: AIPreviewProps) => {
     setIsLoading(true);
     setAiResponse("");
     
-    // Simulate delay for AI response
-    const timeout = setTimeout(() => {
-      generateMockAIResponse(promptText, selectedModel);
-    }, 1500);
+    const generateResponse = async () => {
+      const response = await generateAIResponse(promptText, selectedModel);
+      if (response) {
+        // Simulate streaming text for a better UX
+        let currentText = "";
+        const textStream = response;
+        const interval = setInterval(() => {
+          if (currentText.length < textStream.length) {
+            currentText = textStream.substring(0, currentText.length + 5);
+            setAiResponse(currentText);
+          } else {
+            clearInterval(interval);
+            setIsLoading(false);
+          }
+        }, 30);
+      } else {
+        // Fallback to mock response if API call fails
+        generateMockAIResponse(promptText, selectedModel);
+      }
+    };
     
-    return () => clearTimeout(timeout);
+    // Check if we have an API key configured
+    if (import.meta.env.VITE_OPENAI_API_KEY) {
+      generateResponse();
+    } else {
+      // No API key, use mock data
+      setTimeout(() => {
+        generateMockAIResponse(promptText, selectedModel);
+      }, 1500);
+    }
+    
   }, [promptText, selectedModel]);
   
-  // Generate a deterministic mock AI response based on the prompt
-  const generateMockAIResponse = (prompt: string, model: string) => {
+  // Generate a mock AI response as fallback
+  const generateMockAIResponse = (prompt: string, model: "gpt-4" | "claude" | "llama") => {
     // Different models have slightly different responses
     const modelPrefix = model === "gpt-4" 
       ? "Based on your structured prompt, I've generated the following response:\n\n"
@@ -79,14 +105,39 @@ const AIPreview = ({ promptText, onRegenerate }: AIPreviewProps) => {
     } else {
       setIsLoading(true);
       setAiResponse("");
-      setTimeout(() => {
-        generateMockAIResponse(promptText, selectedModel);
-      }, 1000);
+      
+      const regenerateResponse = async () => {
+        const response = await generateAIResponse(promptText, selectedModel);
+        if (response) {
+          // Simulate streaming text
+          let currentText = "";
+          const textStream = response;
+          const interval = setInterval(() => {
+            if (currentText.length < textStream.length) {
+              currentText = textStream.substring(0, currentText.length + 5);
+              setAiResponse(currentText);
+            } else {
+              clearInterval(interval);
+              setIsLoading(false);
+            }
+          }, 30);
+        } else {
+          generateMockAIResponse(promptText, selectedModel);
+        }
+      };
+      
+      if (import.meta.env.VITE_OPENAI_API_KEY) {
+        regenerateResponse();
+      } else {
+        setTimeout(() => {
+          generateMockAIResponse(promptText, selectedModel);
+        }, 1000);
+      }
     }
   };
 
   const handleModelChange = (model: string) => {
-    setSelectedModel(model);
+    setSelectedModel(model as "gpt-4" | "claude" | "llama");
     // This will trigger the useEffect to regenerate the response
   };
 
@@ -122,7 +173,11 @@ const AIPreview = ({ promptText, onRegenerate }: AIPreviewProps) => {
           <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
             <Bot className="h-12 w-12 mb-4 opacity-20" />
             <p className="text-sm">Generate a prompt to see AI response preview</p>
-            <p className="text-xs mt-2">Connect with Bolt SDK for real AI responses</p>
+            <p className="text-xs mt-2">
+              {import.meta.env.VITE_OPENAI_API_KEY ? 
+                "Using OpenAI API for real responses" : 
+                "Set VITE_OPENAI_API_KEY for real AI responses"}
+            </p>
           </div>
         ) : isLoading ? (
           <div className="space-y-3">

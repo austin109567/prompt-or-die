@@ -7,6 +7,7 @@ import PreviewPanel from "./PreviewPanel";
 import ActionButtons from "./ActionButtons";
 import KeyboardShortcutsDialog from "./KeyboardShortcutsDialog";
 import ExportDialog from "./ExportDialog";
+import AIApiKeySetup from "./AIApiKeySetup";
 
 interface PromptBuilderProps {
   initialBlocks?: PromptBlockProps[];
@@ -183,6 +184,13 @@ const PromptBuilder = ({ initialBlocks = [] }: PromptBuilderProps) => {
     setShowKeyboardDialog(true);
   };
 
+  const handleApiKeySet = () => {
+    toast({
+      title: "API Key Configured",
+      description: "You'll now get real responses from OpenAI"
+    });
+  };
+
   return (
     <>
       <KeyboardShortcuts 
@@ -196,6 +204,10 @@ const PromptBuilder = ({ initialBlocks = [] }: PromptBuilderProps) => {
         open={showKeyboardDialog}
         onOpenChange={setShowKeyboardDialog}
       />
+      
+      <div className="flex justify-end mb-4">
+        <AIApiKeySetup onApiKeySet={handleApiKeySet} />
+      </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-full">
         {/* Builder Panel */}
