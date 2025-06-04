@@ -27,6 +27,7 @@ import {
   Cell, 
   Legend 
 } from "recharts";
+import { useToast } from "@/hooks/use-toast";
 
 interface PromptProject {
   id: string;
@@ -47,6 +48,7 @@ interface SavedTemplate {
 
 const UserDashboard = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [userProfile, setUserProfile] = useState<any>(null);
   const [projects, setProjects] = useState<PromptProject[]>([]);
   const [completionRate, setCompletionRate] = useState(78);
@@ -110,7 +112,7 @@ const UserDashboard = () => {
     const fetchUserData = async () => {
       if (user) {
         try {
-          // Get user profile - using maybeSingle() instead of single()
+          // Get user profile using maybeSingle() instead of single()
           const { data: profileData, error: profileError } = await supabase
             .from('users')
             .select('*')
@@ -136,6 +138,11 @@ const UserDashboard = () => {
             if (createError) throw createError;
             
             setUserProfile(newUserData);
+            
+            toast({
+              title: "Profile created",
+              description: "We've created a profile for you"
+            });
           } else {
             setUserProfile(profileData);
           }
@@ -162,12 +169,17 @@ const UserDashboard = () => {
           }
         } catch (error) {
           console.error('Error fetching user data:', error);
+          toast({
+            title: "Error loading profile",
+            description: "There was a problem loading your profile data",
+            variant: "destructive"
+          });
         }
       }
     };
     
     fetchUserData();
-  }, [user]);
+  }, [user, toast]);
   
   // Toggle project starred status
   const toggleStarred = (id: string) => {
@@ -198,6 +210,8 @@ const UserDashboard = () => {
   
   // Delete selected projects
   const deleteSelectedProjects = async () => {
+    if (activeProjects.length === 0) return;
+    
     try {
       // Delete from Supabase
       const { error } = await supabase
@@ -210,8 +224,18 @@ const UserDashboard = () => {
       // Update local state
       setProjects(projects.filter(project => !activeProjects.includes(project.id)));
       setActiveProjects([]);
+      
+      toast({
+        title: "Projects deleted",
+        description: `${activeProjects.length} project(s) deleted successfully`
+      });
     } catch (error) {
       console.error('Error deleting projects:', error);
+      toast({
+        title: "Error deleting projects",
+        description: "There was a problem deleting your projects",
+        variant: "destructive"
+      });
     }
   };
   
@@ -219,6 +243,11 @@ const UserDashboard = () => {
   const deleteSelectedTemplates = () => {
     setTemplates(templates.filter(template => !activeTemplates.includes(template.id)));
     setActiveTemplates([]);
+    
+    toast({
+      title: "Templates deleted",
+      description: `${activeTemplates.length} template(s) deleted successfully`
+    });
   };
   
   // Create new project
@@ -252,9 +281,19 @@ const UserDashboard = () => {
             isStarred: false
           }
         ]);
+        
+        toast({
+          title: "Project created",
+          description: "Your new project has been created successfully"
+        });
       }
     } catch (error) {
       console.error('Error creating new project:', error);
+      toast({
+        title: "Error creating project",
+        description: "There was a problem creating your new project",
+        variant: "destructive"
+      });
     }
   };
   
