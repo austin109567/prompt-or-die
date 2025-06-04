@@ -1,9 +1,9 @@
-
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Copy, Check } from "lucide-react";
+import AIPreview from "./AIPreview";
 
 interface PreviewPanelProps {
   generatedPrompt: string;
@@ -60,14 +60,7 @@ const PreviewPanel = ({
 
           <Separator />
 
-          <div className="space-y-3">
-            <h4 className="font-medium text-sm text-muted-foreground">AI Response Preview</h4>
-            <div className="bg-card border border-border rounded p-4 min-h-[100px] flex items-center justify-center">
-              <span className="text-muted-foreground text-sm italic">
-                Connect to Bolt SDK for live AI preview
-              </span>
-            </div>
-          </div>
+          <AIPreview promptText={generatedPrompt} />
         </div>
       </Card>
     </div>

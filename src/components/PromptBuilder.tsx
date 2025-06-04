@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { PromptBlockProps } from "./PromptBlock";
@@ -6,6 +5,8 @@ import KeyboardShortcuts from "./KeyboardShortcuts";
 import BuilderPanel from "./BuilderPanel";
 import PreviewPanel from "./PreviewPanel";
 import ActionButtons from "./ActionButtons";
+import KeyboardShortcutsDialog from "./KeyboardShortcutsDialog";
+import ExportDialog from "./ExportDialog";
 
 interface PromptBuilderProps {
   initialBlocks?: PromptBlockProps[];
@@ -36,6 +37,7 @@ const PromptBuilder = ({ initialBlocks = [] }: PromptBuilderProps) => {
   const [generatedPrompt, setGeneratedPrompt] = useState('');
   const [copied, setCopied] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [showKeyboardDialog, setShowKeyboardDialog] = useState(false);
   const { toast } = useToast();
 
   // Load initial blocks when provided
@@ -174,46 +176,11 @@ const PromptBuilder = ({ initialBlocks = [] }: PromptBuilderProps) => {
 
   const exportPrompt = () => {
     console.log('Exporting prompt');
-    if (!generatedPrompt) {
-      toast({
-        title: "Nothing to export",
-        description: "Generate a prompt first!",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    const exportData = {
-      blocks: blocks,
-      generatedPrompt: generatedPrompt,
-      timestamp: new Date().toISOString(),
-      version: "1.0"
-    };
-
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
-      type: 'application/json'
-    });
-    
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'prompt-or-die-export.json';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
-    toast({
-      title: "Exported!",
-      description: "Prompt configuration downloaded as JSON."
-    });
+    // This is now handled by the ExportDialog component
   };
 
   const showKeyboardHelp = () => {
-    toast({
-      title: "Keyboard Shortcuts",
-      description: "⌘+N: Add Block | ⌘+Enter: Generate | ⌘+Shift+C: Copy | ⌘+E: Export | ⌘+/: Help"
-    });
+    setShowKeyboardDialog(true);
   };
 
   return (
@@ -223,6 +190,11 @@ const PromptBuilder = ({ initialBlocks = [] }: PromptBuilderProps) => {
         onGeneratePrompt={generatePrompt}
         onCopyPrompt={copyToClipboard}
         onExportPrompt={exportPrompt}
+      />
+      
+      <KeyboardShortcutsDialog 
+        open={showKeyboardDialog}
+        onOpenChange={setShowKeyboardDialog}
       />
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-full">
@@ -242,12 +214,25 @@ const PromptBuilder = ({ initialBlocks = [] }: PromptBuilderProps) => {
             draggedIndex={draggedIndex}
           />
 
-          <ActionButtons
-            onGeneratePrompt={generatePrompt}
-            onExportPrompt={exportPrompt}
-            hasBlocks={blocks.length > 0}
-            hasGeneratedPrompt={!!generatedPrompt}
-          />
+          <div className="flex space-x-3">
+            <ActionButtons
+              onGeneratePrompt={generatePrompt}
+              onExportPrompt={exportPrompt}
+              hasBlocks={blocks.length > 0}
+              hasGeneratedPrompt={!!generatedPrompt}
+            />
+            {generatedPrompt && (
+              <ExportDialog 
+                blocks={blocks}
+                generatedPrompt={generatedPrompt}
+                trigger={
+                  <Button variant="outline" className="border-accent text-accent hover:bg-accent/10">
+                    Export Options
+                  </Button>
+                }
+              />
+            )}
+          </div>
         </div>
 
         {/* Preview Panel */}
