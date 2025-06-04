@@ -64,8 +64,12 @@ const Header = () => {
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-md flex items-center justify-center bg-primary/20 border border-primary/30">
-              <Terminal className="h-4 w-4 text-primary" />
+            <div className="h-9 w-9 rounded-md overflow-hidden">
+              <img 
+                src="/prod.png" 
+                alt="Prompt or Die" 
+                className="h-full w-full object-contain"
+              />
             </div>
             <h1 
               className="text-xl font-bold glitch-text hidden sm:block" 
@@ -164,7 +168,7 @@ const Header = () => {
               <SheetContent>
                 <SheetHeader className="mb-4">
                   <SheetTitle className="flex items-center gap-2">
-                    <Terminal className="h-5 w-5 text-primary" />
+                    <img src="/prod.png" alt="Prompt or Die" className="h-6 w-6" />
                     Prompt or Die
                   </SheetTitle>
                 </SheetHeader>

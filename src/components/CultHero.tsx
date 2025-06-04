@@ -154,10 +154,17 @@ const CultHero = () => {
         </div>
       </div>
       
-      {/* Main cult circle symbol */}
+      {/* Main cult emblem */}
       <div className={`absolute h-80 w-80 transition-all duration-1500 ease-out ${
         initialized ? 'opacity-100 scale-100' : 'opacity-0 scale-50'
       }`}>
+        {/* Using the custom cult logo from the second reference image */}
+        <img 
+          src="/ChatGPT Image Jun 4, 2025, 12_48_32 PM.png" 
+          alt="Prompt or Die Emblem"
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-full w-full object-contain z-10"
+        />
+        
         {/* Outer circle */}
         <div className="absolute h-full w-full rounded-full border-[1px] border-primary/40 animate-[spin_60s_linear_infinite]">
           {/* Constellation points on outer circle */}
@@ -171,49 +178,6 @@ const CultHero = () => {
               }}
             />
           ))}
-        </div>
-        
-        {/* Middle circle with runes */}
-        <div className="absolute h-60 w-60 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border-[1px] border-primary/60 animate-[spin_40s_linear_infinite_reverse]">
-          {/* Rune symbols */}
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div 
-              key={`rune-${i}`} 
-              className="absolute text-xs font-mono text-primary/80" 
-              style={{ 
-                top: `${50 + 48 * Math.sin(i * (Math.PI / 4))}%`, 
-                left: `${50 + 48 * Math.cos(i * (Math.PI / 4))}%`,
-                transform: 'translate(-50%, -50%)'
-              }}
-            >
-              {["⟁", "⧗", "⧉", "⧊", "⊡", "⊞", "⊟", "⊠"][i]}
-            </div>
-          ))}
-        </div>
-        
-        {/* Inner circle */}
-        <div className="absolute h-40 w-40 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border-[1px] border-primary/80 animate-[spin_30s_linear_infinite]">
-          {/* Inner points */}
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div 
-              key={`inner-${i}`} 
-              className="absolute h-1 w-1 rounded-full bg-primary/90" 
-              style={{ 
-                top: `${50 + 48 * Math.sin(i * (Math.PI / 3))}%`, 
-                left: `${50 + 48 * Math.cos(i * (Math.PI / 3))}%` 
-              }}
-            />
-          ))}
-        </div>
-        
-        {/* Center triangle symbol - inspired by the image */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-20 w-20 rounded-full bg-black/90 border border-primary flex items-center justify-center">
-          <div className="relative">
-            <Triangle className="h-12 w-12 text-primary/80 stroke-[1.5]" />
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-              <Code className="h-5 w-5 text-accent animate-pulse-subtle" />
-            </div>
-          </div>
         </div>
         
         {/* Orbital elements */}
@@ -235,7 +199,7 @@ const CultHero = () => {
           </div>
         </div>
         
-        {/* Flame orbital - inspired by the triangle+flame logo */}
+        {/* Flame orbital */}
         <div className="absolute h-full w-full animate-[orbit_18s_linear_infinite]" style={{ animationDelay: '-3s' }}>
           <div className="absolute bottom-12 left-8 h-7 w-7 rounded-full bg-black/60 border border-red-500/70 flex items-center justify-center">
             <Flame className="h-4 w-4 text-red-500" />
@@ -246,7 +210,7 @@ const CultHero = () => {
       {/* Content */}
       <div className="relative z-10 container mx-auto px-4 py-12 flex flex-col items-center text-center max-w-3xl">
         <div className="space-y-8">
-          {/* Main title with glitch effect - inspired by the dripping logo */}
+          {/* Main title using the first reference image's quote */}
           <h1 className={`text-4xl sm:text-6xl font-bold leading-tight tracking-tighter mb-4 transition-all duration-1000 ${
             initialized ? 'opacity-100' : 'opacity-0 translate-y-10'
           }`}>
@@ -257,6 +221,19 @@ const CultHero = () => {
               </span>
             </div>
           </h1>
+          
+          {/* Banner below title inspired by the first reference image */}
+          <div className={`relative max-w-xl mx-auto transition-all duration-1000 delay-300 ${
+            revealText ? 'opacity-100' : 'opacity-0'
+          }`}>
+            <div className="relative w-full max-w-[400px] mx-auto">
+              <img 
+                src="/ChatGPT Image Jun 4, 2025, 12_26_16 PM.png" 
+                alt="Anti Cult Society" 
+                className="w-full h-auto object-contain"
+              />
+            </div>
+          </div>
           
           {/* Enigmatic subtitle with text reveal animation */}
           <p className={`text-xl text-muted-foreground max-w-xl mx-auto transition-all duration-1000 delay-300 font-mono ${
