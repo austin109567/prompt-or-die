@@ -11,9 +11,10 @@ import AIApiKeySetup from "./AIApiKeySetup";
 
 interface PromptBuilderProps {
   initialBlocks?: PromptBlockProps[];
+  onBlocksChange?: (blocks: PromptBlockProps[]) => void;
 }
 
-const PromptBuilder = ({ initialBlocks = [] }: PromptBuilderProps) => {
+const PromptBuilder = ({ initialBlocks = [], onBlocksChange }: PromptBuilderProps) => {
   const [blocks, setBlocks] = useState<PromptBlockProps[]>([
     {
       id: '1',
@@ -48,6 +49,13 @@ const PromptBuilder = ({ initialBlocks = [] }: PromptBuilderProps) => {
       setGeneratedPrompt('');
     }
   }, [initialBlocks]);
+
+  // Update blocks when they change
+  useEffect(() => {
+    if (onBlocksChange) {
+      onBlocksChange(blocks);
+    }
+  }, [blocks, onBlocksChange]);
 
   const addNewBlock = () => {
     const newBlock: PromptBlockProps = {
@@ -238,7 +246,7 @@ const PromptBuilder = ({ initialBlocks = [] }: PromptBuilderProps) => {
                 blocks={blocks}
                 generatedPrompt={generatedPrompt}
                 trigger={
-                  <Button variant="outline\" className="border-accent text-accent hover:bg-accent/10">
+                  <Button variant="outline" className="border-accent text-accent hover:bg-accent/10">
                     Export Options
                   </Button>
                 }

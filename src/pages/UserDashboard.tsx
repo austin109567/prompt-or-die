@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,6 +50,7 @@ interface SavedTemplate {
 const UserDashboard = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [userProfile, setUserProfile] = useState<any>(null);
   const [projects, setProjects] = useState<PromptProject[]>([]);
   const [completionRate, setCompletionRate] = useState(78);
@@ -251,50 +253,8 @@ const UserDashboard = () => {
   };
   
   // Create new project
-  const createNewProject = async () => {
-    if (!user) return;
-    
-    try {
-      const newProjectId = Math.random().toString(36).substring(2, 15);
-      
-      const { data, error } = await supabase
-        .from('projects')
-        .insert({
-          id: newProjectId,
-          name: "New Project",
-          user_id: user.id,
-          last_modified: new Date().toISOString()
-        })
-        .select();
-        
-      if (error) throw error;
-      
-      if (data) {
-        setProjects([
-          ...projects,
-          {
-            id: newProjectId,
-            name: "New Project",
-            description: "A collection of prompt blocks",
-            blocks: 0,
-            lastModified: new Date().toLocaleDateString(),
-            isStarred: false
-          }
-        ]);
-        
-        toast({
-          title: "Project created",
-          description: "Your new project has been created successfully"
-        });
-      }
-    } catch (error) {
-      console.error('Error creating new project:', error);
-      toast({
-        title: "Error creating project",
-        description: "There was a problem creating your new project",
-        variant: "destructive"
-      });
-    }
+  const createNewProject = () => {
+    navigate('/projects/new');
   };
   
   // Helper function to format large numbers
@@ -494,7 +454,15 @@ const UserDashboard = () => {
                     </CardContent>
                     <CardFooter className="opacity-0 group-hover:opacity-100 transition-opacity pt-0">
                       <div className="w-full flex justify-between">
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 w-8 p-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/projects/${project.id}`);
+                          }}
+                        >
                           <Edit className="h-4 w-4" />
                         </Button>
                         <Button variant="ghost" size="sm" className="h-8 w-8 p-0">

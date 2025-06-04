@@ -15,6 +15,7 @@ import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AuthCallback from "./pages/AuthCallback";
 import TerminalWrapper from "./components/TerminalWrapper";
+import ProjectEditor from "./pages/ProjectEditor";
 
 const queryClient = new QueryClient();
 
@@ -37,6 +38,16 @@ const App = () => (
                   <Route path="/dashboard" element={
                     <ProtectedRoute>
                       <UserDashboard />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/projects/new" element={
+                    <ProtectedRoute>
+                      <ProjectEditor />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/projects/:projectId" element={
+                    <ProtectedRoute>
+                      <ProjectEditor />
                     </ProtectedRoute>
                   } />
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
