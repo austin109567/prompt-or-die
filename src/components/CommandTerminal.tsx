@@ -223,8 +223,10 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
     if (args.length === 0) {
       setOutputLines(prev => [...prev, { 
         text: "Error: Missing resource type. Usage: create <resource>",
-        text: "Available resources: project, template, block",
         isError: true 
+      }, {
+        text: "Available resources: project, template, block",
+        isError: false
       }]);
       return;
     }
@@ -270,8 +272,10 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
       default:
         setOutputLines(prev => [...prev, { 
           text: `Error: Unknown resource type '${resourceType}'.`,
-          text: "Available resources: project, template, block",
           isError: true 
+        }, {
+          text: "Available resources: project, template, block",
+          isError: false
         }]);
     }
   };
@@ -280,8 +284,10 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
     if (args.length === 0) {
       setOutputLines(prev => [...prev, { 
         text: "Error: Missing resource type. Usage: list <resource>",
-        text: "Available resources: projects, commands, templates",
         isError: true 
+      }, {
+        text: "Available resources: projects, commands, templates",
+        isError: false
       }]);
       return;
     }
@@ -330,8 +336,10 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
       default:
         setOutputLines(prev => [...prev, { 
           text: `Error: Unknown resource type '${resourceType}'.`,
-          text: "Available resources: projects, commands, templates",
           isError: true 
+        }, {
+          text: "Available resources: projects, commands, templates",
+          isError: false
         }]);
     }
   };
