@@ -58,7 +58,7 @@ const PreviewPanel = ({
           <div className="font-mono text-sm bg-muted/30 p-4 rounded-md border border-border/50 min-h-[200px] max-h-[300px] overflow-y-auto whitespace-pre-wrap">
             {generatedPrompt || (
               <span className="text-muted-foreground italic">
-                Click "Generate Prompt" to see your composed prompt here...
+                Click "Generate Prompt\" to see your composed prompt here...
               </span>
             )}
           </div>
