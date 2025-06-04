@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useAuth } from "@/hooks/use-auth";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Edit, Folder, Plus, Share, Star, Trash2 } from "lucide-react";
 import DomainSettings from "@/components/DomainSettings";
 import { Input } from "@/components/ui/input";
+import { supabase } from "@/lib/supabase";
 
 interface PromptProject {
   id: string;
@@ -28,50 +30,11 @@ interface SavedTemplate {
 }
 
 const UserDashboard = () => {
-  // Mock user data
-  const user = {
-    name: "Alex Johnson",
-    email: "alex@example.com",
-    avatar: "",
-    initials: "AJ",
-    joinDate: "March 2025"
-  };
+  const { user } = useAuth();
+  const [userProfile, setUserProfile] = useState<any>(null);
   
   // Mock projects
-  const [projects, setProjects] = useState<PromptProject[]>([
-    {
-      id: "1",
-      name: "Content Marketing Suite",
-      description: "A collection of prompts for blog posts, social media, and email marketing",
-      blocks: 12,
-      lastModified: "2 hours ago",
-      isStarred: true
-    },
-    {
-      id: "2",
-      name: "Developer Assistant",
-      description: "Code review, documentation, and debugging prompts",
-      blocks: 8,
-      lastModified: "Yesterday",
-      isStarred: false
-    },
-    {
-      id: "3",
-      name: "Creative Writing",
-      description: "Story generation and character development prompts",
-      blocks: 15,
-      lastModified: "3 days ago",
-      isStarred: true
-    },
-    {
-      id: "4",
-      name: "Data Analysis Helper",
-      description: "Prompts for analyzing datasets and creating visualizations",
-      blocks: 6,
-      lastModified: "1 week ago",
-      isStarred: false
-    },
-  ]);
+  const [projects, setProjects] = useState<PromptProject[]>([]);
   
   // Mock saved templates
   const [templates, setTemplates] = useState<SavedTemplate[]>([
@@ -101,6 +64,51 @@ const UserDashboard = () => {
   // State for active projects and templates
   const [activeProjects, setActiveProjects] = useState<string[]>([]);
   const [activeTemplates, setActiveTemplates] = useState<string[]>([]);
+
+  useEffect(() => {
+    // Fetch user profile and projects
+    const fetchUserData = async () => {
+      if (user) {
+        try {
+          // Get user profile
+          const { data: profileData, error: profileError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', user.id)
+            .single();
+            
+          if (profileError) throw profileError;
+          
+          setUserProfile(profileData);
+          
+          // Get user projects
+          const { data: projectsData, error: projectsError } = await supabase
+            .from('projects')
+            .select('*, prompt_blocks(count)')
+            .eq('user_id', user.id);
+            
+          if (projectsError) throw projectsError;
+          
+          if (projectsData) {
+            const formattedProjects = projectsData.map((project) => ({
+              id: project.id,
+              name: project.name,
+              description: "A collection of prompt blocks",
+              blocks: project.prompt_blocks?.count || 0,
+              lastModified: new Date(project.last_modified).toLocaleDateString(),
+              isStarred: false
+            }));
+            
+            setProjects(formattedProjects);
+          }
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+        }
+      }
+    };
+    
+    fetchUserData();
+  }, [user]);
   
   // Toggle project starred status
   const toggleStarred = (id: string) => {
@@ -130,15 +138,65 @@ const UserDashboard = () => {
   };
   
   // Delete selected projects
-  const deleteSelectedProjects = () => {
-    setProjects(projects.filter(project => !activeProjects.includes(project.id)));
-    setActiveProjects([]);
+  const deleteSelectedProjects = async () => {
+    try {
+      // Delete from Supabase
+      const { error } = await supabase
+        .from('projects')
+        .delete()
+        .in('id', activeProjects);
+        
+      if (error) throw error;
+      
+      // Update local state
+      setProjects(projects.filter(project => !activeProjects.includes(project.id)));
+      setActiveProjects([]);
+    } catch (error) {
+      console.error('Error deleting projects:', error);
+    }
   };
   
   // Delete selected templates
   const deleteSelectedTemplates = () => {
     setTemplates(templates.filter(template => !activeTemplates.includes(template.id)));
     setActiveTemplates([]);
+  };
+  
+  // Create new project
+  const createNewProject = async () => {
+    if (!user) return;
+    
+    try {
+      const newProjectId = Math.random().toString(36).substring(2, 15);
+      
+      const { data, error } = await supabase
+        .from('projects')
+        .insert({
+          id: newProjectId,
+          name: "New Project",
+          user_id: user.id,
+          last_modified: new Date().toISOString()
+        })
+        .select();
+        
+      if (error) throw error;
+      
+      if (data) {
+        setProjects([
+          ...projects,
+          {
+            id: newProjectId,
+            name: "New Project",
+            description: "A collection of prompt blocks",
+            blocks: 0,
+            lastModified: new Date().toLocaleDateString(),
+            isStarred: false
+          }
+        ]);
+      }
+    } catch (error) {
+      console.error('Error creating new project:', error);
+    }
   };
 
   return (
@@ -149,13 +207,13 @@ const UserDashboard = () => {
         <div className="flex flex-col md:flex-row gap-6 md:items-center justify-between mb-8">
           <div className="flex items-center gap-4">
             <Avatar className="h-16 w-16 border-2 border-primary">
-              <AvatarImage src={user.avatar} />
-              <AvatarFallback className="text-lg">{user.initials}</AvatarFallback>
+              <AvatarImage src="" />
+              <AvatarFallback className="text-lg">{userProfile?.handle?.substring(0, 2).toUpperCase() || user?.email?.substring(0, 2).toUpperCase()}</AvatarFallback>
             </Avatar>
             <div>
-              <h1 className="text-2xl font-bold">{user.name}</h1>
-              <p className="text-muted-foreground">{user.email}</p>
-              <p className="text-xs text-muted-foreground mt-1">Member since {user.joinDate}</p>
+              <h1 className="text-2xl font-bold">{userProfile?.handle || user?.email?.split('@')[0]}</h1>
+              <p className="text-muted-foreground">{user?.email}</p>
+              <p className="text-xs text-muted-foreground mt-1">Member since {new Date(user?.created_at || Date.now()).toLocaleDateString()}</p>
             </div>
           </div>
           
@@ -164,7 +222,7 @@ const UserDashboard = () => {
               <Edit className="h-4 w-4" />
               Edit Profile
             </Button>
-            <Button className="gap-2 bg-primary hover:bg-primary/90">
+            <Button className="gap-2 bg-primary hover:bg-primary/90" onClick={createNewProject}>
               <Plus className="h-4 w-4" />
               New Project
             </Button>
@@ -197,7 +255,11 @@ const UserDashboard = () => {
                   <Folder className="h-4 w-4" />
                   New Folder
                 </Button>
-                <Button size="sm" className="gap-1 bg-primary hover:bg-primary/90">
+                <Button 
+                  size="sm" 
+                  className="gap-1 bg-primary hover:bg-primary/90"
+                  onClick={createNewProject}
+                >
                   <Plus className="h-4 w-4" />
                   New Project
                 </Button>
@@ -264,7 +326,10 @@ const UserDashboard = () => {
                 </Card>
               ))}
 
-              <Card className="border-dashed border-2 hover:border-primary/50 cursor-pointer transition-colors flex items-center justify-center h-[200px]">
+              <Card 
+                className="border-dashed border-2 hover:border-primary/50 cursor-pointer transition-colors flex items-center justify-center h-[200px]"
+                onClick={createNewProject}
+              >
                 <div className="text-center p-6">
                   <Plus className="h-8 w-8 mx-auto mb-4 text-muted-foreground" />
                   <p className="font-medium">Create New Project</p>
@@ -367,12 +432,12 @@ const UserDashboard = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
-                  <Input id="name" defaultValue={user.name} />
+                  <Label htmlFor="handle">Username</Label>
+                  <Input id="handle" defaultValue={userProfile?.handle} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" defaultValue={user.email} />
+                  <Input id="email" type="email" defaultValue={user?.email} disabled />
                 </div>
               </CardContent>
               <CardFooter>
@@ -404,22 +469,6 @@ const UserDashboard = () => {
               <CardFooter>
                 <Button className="bg-primary hover:bg-primary/90">Update Password</Button>
               </CardFooter>
-            </Card>
-            
-            <Card>
-              <CardHeader>
-                <CardTitle>API Access</CardTitle>
-                <CardDescription>Manage your API keys for integrations</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="p-4 bg-muted rounded-md font-mono text-sm">
-                  sk_live_promptordie_xxxxxxxxxxxxxxxxxxxxxxxx
-                </div>
-                <div className="flex gap-4">
-                  <Button variant="outline">Regenerate Key</Button>
-                  <Button variant="outline">Copy Key</Button>
-                </div>
-              </CardContent>
             </Card>
             
             <Card className="border-destructive/50">

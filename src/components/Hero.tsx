@@ -17,7 +17,7 @@ const Hero = () => {
           {/* Eyebrow tag */}
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary/60 border border-primary/30 backdrop-blur-sm mb-4">
             <Sparkles className="h-3.5 w-3.5 text-primary" />
-            <span className="text-xs font-medium">Visual Prompt Engineering Tool</span>
+            <span className="text-xs font-medium">Visual AI Prompt Builder</span>
           </div>
           
           <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold leading-tight tracking-tighter">
@@ -83,7 +83,7 @@ const Hero = () => {
                   </div>
                   <h3 className="text-lg font-semibold mb-2 text-foreground group-hover:text-accent transition-colors">Live Preview</h3>
                   <p className="text-sm text-muted-foreground">
-                    See AI responses in real-time with our embedded AI preview tool and Bolt SDK integration.
+                    See AI responses in real-time with our embedded AI preview tool and OpenAI integration.
                   </p>
                 </div>
               </div>
@@ -101,17 +101,6 @@ const Hero = () => {
                   </p>
                 </div>
               </div>
-            </div>
-          </div>
-          
-          {/* Social proof */}
-          <div className="mt-20 pt-8 border-t border-border/30">
-            <p className="text-sm text-muted-foreground mb-6">Trusted by prompt engineers at</p>
-            <div className="flex flex-wrap justify-center gap-8 opacity-70 grayscale hover:grayscale-0 transition-all">
-              <img src="https://images.pexels.com/photos/5063099/pexels-photo-5063099.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1" alt="Company logo" className="h-6" />
-              <img src="https://images.pexels.com/photos/5063099/pexels-photo-5063099.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1" alt="Company logo" className="h-6" />
-              <img src="https://images.pexels.com/photos/5063099/pexels-photo-5063099.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1" alt="Company logo" className="h-6" />
-              <img src="https://images.pexels.com/photos/5063099/pexels-photo-5063099.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1" alt="Company logo" className="h-6" />
             </div>
           </div>
         </div>

@@ -4,6 +4,7 @@ import {
   Code, 
   ExternalLink, 
   Github, 
+  LogOut, 
   Menu, 
   Moon, 
   Sun, 
@@ -11,6 +12,9 @@ import {
   User 
 } from "lucide-react";
 import { useTheme } from "@/hooks/use-theme";
+import { useAuth } from "@/hooks/use-auth";
+import { signOut } from "@/lib/supabase";
+import { useToast } from "@/hooks/use-toast";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,10 +34,29 @@ import {
 const Header = () => {
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
+  const { user, isAuthenticated } = useAuth();
+  const { toast } = useToast();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   
   const toggleTheme = () => {
     setTheme(theme === "dark" ? "light" : "dark");
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      toast({
+        title: "Signed out successfully",
+        description: "You have been logged out of your account"
+      });
+      navigate("/");
+    } catch (error: any) {
+      toast({
+        title: "Error signing out",
+        description: error.message || "An error occurred while signing out",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -86,22 +109,49 @@ const Header = () => {
           </Button>
           
           <div className="hidden sm:block">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="mr-2 border-border hover:border-primary hover:text-primary"
-              onClick={() => navigate("/auth")}
-            >
-              Sign In
-            </Button>
-            
-            <Button 
-              size="sm" 
-              className="bg-primary hover:bg-primary/90 text-primary-foreground glow-effect"
-              onClick={() => navigate("/auth?tab=register")}
-            >
-              Get Started
-            </Button>
+            {isAuthenticated ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="border-border hover:border-primary hover:text-primary"
+                  >
+                    <User className="h-4 w-4 mr-2" />
+                    {user?.email?.split('@')[0] || 'Account'}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => navigate("/dashboard")}>
+                    Dashboard
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut}>
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="mr-2 border-border hover:border-primary hover:text-primary"
+                  onClick={() => navigate("/auth")}
+                >
+                  Sign In
+                </Button>
+                
+                <Button 
+                  size="sm" 
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground glow-effect"
+                  onClick={() => navigate("/auth?tab=register")}
+                >
+                  Get Started
+                </Button>
+              </>
+            )}
           </div>
           
           <div className="md:hidden">
@@ -151,27 +201,57 @@ const Header = () => {
                   </a>
                 </nav>
                 <div className="mt-6 space-y-2">
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-start border-border hover:border-primary hover:text-primary"
-                    onClick={() => {
-                      navigate("/auth");
-                      setIsMenuOpen(false);
-                    }}
-                  >
-                    <User className="h-4 w-4 mr-2" />
-                    Sign In
-                  </Button>
-                  
-                  <Button 
-                    className="w-full justify-start bg-primary hover:bg-primary/90 text-primary-foreground"
-                    onClick={() => {
-                      navigate("/auth?tab=register");
-                      setIsMenuOpen(false);
-                    }}
-                  >
-                    Get Started
-                  </Button>
+                  {isAuthenticated ? (
+                    <>
+                      <Button 
+                        variant="outline" 
+                        className="w-full justify-start border-border hover:border-primary hover:text-primary"
+                        onClick={() => {
+                          navigate("/dashboard");
+                          setIsMenuOpen(false);
+                        }}
+                      >
+                        <User className="h-4 w-4 mr-2" />
+                        Dashboard
+                      </Button>
+                      
+                      <Button 
+                        variant="outline"
+                        className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => {
+                          handleSignOut();
+                          setIsMenuOpen(false);
+                        }}
+                      >
+                        <LogOut className="h-4 w-4 mr-2" />
+                        Sign Out
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button 
+                        variant="outline" 
+                        className="w-full justify-start border-border hover:border-primary hover:text-primary"
+                        onClick={() => {
+                          navigate("/auth");
+                          setIsMenuOpen(false);
+                        }}
+                      >
+                        <User className="h-4 w-4 mr-2" />
+                        Sign In
+                      </Button>
+                      
+                      <Button 
+                        className="w-full justify-start bg-primary hover:bg-primary/90 text-primary-foreground"
+                        onClick={() => {
+                          navigate("/auth?tab=register");
+                          setIsMenuOpen(false);
+                        }}
+                      >
+                        Get Started
+                      </Button>
+                    </>
+                  )}
                 </div>
               </SheetContent>
             </Sheet>
