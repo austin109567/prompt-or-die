@@ -191,6 +191,27 @@
   .stat-card.info::before {
     @apply from-blue-500/40 to-blue-500/60;
   }
+  
+  /* Terminal styles */
+  .terminal-window {
+    @apply font-mono text-sm;
+  }
+
+  .terminal-line {
+    @apply mb-1 whitespace-pre-wrap break-words;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-primary/30 rounded-full;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
 }
 
 /* Cult theme specific animations */

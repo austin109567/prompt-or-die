@@ -15,6 +15,7 @@ import { useTheme } from "@/hooks/use-theme";
 import { useAuth } from "@/hooks/use-auth";
 import { signOut } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
+import { useCommandTerminal } from "@/hooks/use-command-terminal";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,6 +37,7 @@ const Header = () => {
   const { theme, setTheme } = useTheme();
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
+  const { openTerminal } = useCommandTerminal();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   
   const toggleTheme = () => {
@@ -110,6 +112,16 @@ const Header = () => {
             ) : (
               <Moon className="h-[18px] w-[18px]" />
             )}
+          </Button>
+          
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={openTerminal}
+            title="Open Terminal (Ctrl + `)"
+            className="rounded-full"
+          >
+            <Terminal className="h-[18px] w-[18px]" />
           </Button>
           
           <div className="hidden sm:block">
