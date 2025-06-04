@@ -3,9 +3,16 @@ import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PromptBuilder from "./PromptBuilder";
 import TemplateGallery from "./TemplateGallery";
+import { PromptBlockProps } from "./PromptBlock";
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState("builder");
+  const [loadedBlocks, setLoadedBlocks] = useState<PromptBlockProps[]>([]);
+
+  const handleLoadTemplate = (blocks: PromptBlockProps[]) => {
+    setLoadedBlocks(blocks);
+    setActiveTab("builder");
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -22,16 +29,11 @@ const Dashboard = () => {
         </div>
 
         <TabsContent value="builder" className="space-y-6">
-          <PromptBuilder />
+          <PromptBuilder initialBlocks={loadedBlocks} />
         </TabsContent>
 
         <TabsContent value="templates" className="space-y-6">
-          <TemplateGallery 
-            onLoadTemplate={(blocks) => {
-              // Switch to builder tab when template is loaded
-              setActiveTab("builder");
-            }}
-          />
+          <TemplateGallery onLoadTemplate={handleLoadTemplate} />
         </TabsContent>
       </Tabs>
     </div>
