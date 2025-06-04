@@ -1,15 +1,14 @@
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
 import { Moon, Sun, User } from "lucide-react";
-import { useState } from "react";
+import { useTheme } from "@/hooks/use-theme";
 
 const Header = () => {
   const navigate = useNavigate();
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const { theme, setTheme } = useTheme();
   
   const toggleTheme = () => {
-    setIsDarkMode(!isDarkMode);
-    // In a real app, this would update the theme
+    setTheme(theme === "dark" ? "light" : "dark");
   };
 
   return (
@@ -43,7 +42,7 @@ const Header = () => {
             onClick={toggleTheme}
             className="rounded-full"
           >
-            {isDarkMode ? (
+            {theme === "dark" ? (
               <Sun className="h-5 w-5" />
             ) : (
               <Moon className="h-5 w-5" />

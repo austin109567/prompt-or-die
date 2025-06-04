@@ -7,6 +7,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Edit, Folder, Plus, Share, Star, Trash2 } from "lucide-react";
+import DomainSettings from "@/components/DomainSettings";
+import { Input } from "@/components/ui/input";
 
 interface PromptProject {
   id: string;
@@ -377,6 +379,8 @@ const UserDashboard = () => {
                 <Button className="bg-primary hover:bg-primary/90">Save Changes</Button>
               </CardFooter>
             </Card>
+            
+            <DomainSettings />
             
             <Card>
               <CardHeader>
