@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Bot, Loader2, RefreshCcw } from "lucide-react";
+import { Bot, Loader2, RefreshCw } from "lucide-react";
 
 interface AIPreviewProps {
   promptText: string;
@@ -13,6 +12,7 @@ interface AIPreviewProps {
 const AIPreview = ({ promptText, onRegenerate }: AIPreviewProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [aiResponse, setAiResponse] = useState("");
+  const [selectedModel, setSelectedModel] = useState("gpt-4");
   
   // Simulate AI response generation
   useEffect(() => {
@@ -26,20 +26,26 @@ const AIPreview = ({ promptText, onRegenerate }: AIPreviewProps) => {
     
     // Simulate delay for AI response
     const timeout = setTimeout(() => {
-      generateMockAIResponse(promptText);
+      generateMockAIResponse(promptText, selectedModel);
     }, 1500);
     
     return () => clearTimeout(timeout);
-  }, [promptText]);
+  }, [promptText, selectedModel]);
   
   // Generate a deterministic mock AI response based on the prompt
-  const generateMockAIResponse = (prompt: string) => {
+  const generateMockAIResponse = (prompt: string, model: string) => {
+    // Different models have slightly different responses
+    const modelPrefix = model === "gpt-4" 
+      ? "Based on your structured prompt, I've generated the following response:\n\n"
+      : model === "claude"
+        ? "I'll address your request according to the specified parameters:\n\n"
+        : "Following your instructions, here's my response:\n\n";
+    
     const responseParts = [
-      "Based on your prompt, here's what I've generated:",
-      "",
+      modelPrefix,
       prompt.includes("summarize") || prompt.includes("Summarize") ? 
         "Here's a concise summary of the key points:" : 
-        "Here are the main insights from your request:",
+        "Here are the main insights based on your request:",
       "",
       "• The prompt structure effectively communicates your intent and desired format",
       "• Using modular blocks helps create more consistent and reusable prompts",
@@ -74,33 +80,48 @@ const AIPreview = ({ promptText, onRegenerate }: AIPreviewProps) => {
       setIsLoading(true);
       setAiResponse("");
       setTimeout(() => {
-        generateMockAIResponse(promptText);
+        generateMockAIResponse(promptText, selectedModel);
       }, 1000);
     }
   };
 
+  const handleModelChange = (model: string) => {
+    setSelectedModel(model);
+    // This will trigger the useEffect to regenerate the response
+  };
+
   return (
-    <Card className="p-4 h-full">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center">
-          <Bot className="h-5 w-5 mr-2 text-primary" />
+    <div className="space-y-3">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <Bot className="h-4 w-4 text-accent" />
           <h3 className="font-medium text-sm">AI Response Preview</h3>
         </div>
         
-        <Tabs defaultValue="gpt-4" className="w-auto">
-          <TabsList className="h-8">
-            <TabsTrigger value="gpt-4" className="text-xs px-2 py-1">GPT-4</TabsTrigger>
-            <TabsTrigger value="claude" className="text-xs px-2 py-1">Claude</TabsTrigger>
-            <TabsTrigger value="llama" className="text-xs px-2 py-1">Llama</TabsTrigger>
+        <Tabs 
+          value={selectedModel} 
+          onValueChange={handleModelChange}
+          className="w-auto"
+        >
+          <TabsList className="h-7 p-0.5 bg-muted/50">
+            <TabsTrigger value="gpt-4" className="text-xs px-2.5 py-0.5 h-6">
+              GPT-4
+            </TabsTrigger>
+            <TabsTrigger value="claude" className="text-xs px-2.5 py-0.5 h-6">
+              Claude
+            </TabsTrigger>
+            <TabsTrigger value="llama" className="text-xs px-2.5 py-0.5 h-6">
+              Llama
+            </TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
       
-      <div className="min-h-[300px] max-h-[500px] overflow-y-auto bg-muted/50 rounded-md p-4 mb-4">
+      <div className="min-h-[200px] max-h-[300px] overflow-y-auto bg-muted/30 rounded-md p-4 border border-border/50 relative">
         {!promptText ? (
           <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
             <Bot className="h-12 w-12 mb-4 opacity-20" />
-            <p>Generate a prompt to see AI response preview</p>
+            <p className="text-sm">Generate a prompt to see AI response preview</p>
             <p className="text-xs mt-2">Connect with Bolt SDK for real AI responses</p>
           </div>
         ) : isLoading ? (
@@ -109,14 +130,18 @@ const AIPreview = ({ promptText, onRegenerate }: AIPreviewProps) => {
               <Loader2 className="h-4 w-4 animate-spin text-primary" />
               <p className="text-sm text-muted-foreground">AI is thinking...</p>
             </div>
-            <Skeleton className="h-4 w-3/4" />
-            <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-4 w-5/6" />
-            <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-4 w-2/3" />
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-5/6" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-2/3" />
+            </div>
           </div>
         ) : (
-          <pre className="font-mono text-sm whitespace-pre-wrap">{aiResponse}</pre>
+          <div className="font-mono text-sm whitespace-pre-wrap">
+            {aiResponse}
+          </div>
         )}
       </div>
       
@@ -126,17 +151,17 @@ const AIPreview = ({ promptText, onRegenerate }: AIPreviewProps) => {
           size="sm"
           onClick={handleRegenerate}
           disabled={!promptText || isLoading}
-          className={!promptText ? "opacity-50" : ""}
+          className="border-accent/30 hover:border-accent/60 hover:bg-accent/10 text-xs"
         >
           {isLoading ? (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
           ) : (
-            <RefreshCcw className="h-4 w-4 mr-2" />
+            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
           )}
           Regenerate
         </Button>
       </div>
-    </Card>
+    </div>
   );
 };
 

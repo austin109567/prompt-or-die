@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -6,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Edit2 } from "lucide-react";
+import { Pencil } from "lucide-react";
 import { PromptBlockProps } from "./PromptBlock";
 
 interface EditBlockDialogProps {
@@ -15,12 +14,20 @@ interface EditBlockDialogProps {
 }
 
 const blockTypes = [
-  { value: 'intent', label: 'Intent' },
-  { value: 'tone', label: 'Tone' },
-  { value: 'format', label: 'Format' },
-  { value: 'context', label: 'Context' },
-  { value: 'persona', label: 'Persona' }
+  { value: 'intent', label: 'Intent', description: 'What the AI should do' },
+  { value: 'tone', label: 'Tone', description: 'How the AI should communicate' },
+  { value: 'format', label: 'Format', description: 'How to structure the output' },
+  { value: 'context', label: 'Context', description: 'Relevant information or constraints' },
+  { value: 'persona', label: 'Persona', description: 'Who the AI should act as' }
 ];
+
+const blockTypeIcons = {
+  intent: '🎯',
+  tone: '🔊',
+  format: '📋',
+  context: '🌍',
+  persona: '👤'
+};
 
 const EditBlockDialog = ({ block, onSave }: EditBlockDialogProps) => {
   const [open, setOpen] = useState(false);
@@ -37,31 +44,38 @@ const EditBlockDialog = ({ block, onSave }: EditBlockDialogProps) => {
         <Button
           variant="ghost"
           size="sm"
-          className="h-6 w-6 p-0 hover:bg-muted"
+          className="h-7 w-7 p-0 rounded-md hover:bg-muted"
+          title="Edit block"
         >
-          <Edit2 className="h-3 w-3" />
+          <Pencil className="h-3.5 w-3.5" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[525px]">
+      <DialogContent className="sm:max-w-[550px]">
         <DialogHeader>
           <DialogTitle>Edit Prompt Block</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 py-4">
+        <div className="space-y-6 py-4">
           <div className="space-y-2">
-            <Label htmlFor="block-type">Type</Label>
+            <Label htmlFor="block-type">Block Type</Label>
             <Select
               value={editedBlock.type}
               onValueChange={(value) => 
                 setEditedBlock(prev => ({ ...prev, type: value as any }))
               }
             >
-              <SelectTrigger>
-                <SelectValue />
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select block type" />
               </SelectTrigger>
               <SelectContent>
                 {blockTypes.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
+                  <SelectItem key={type.value} value={type.value} className="flex items-center gap-2 py-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{blockTypeIcons[type.value as keyof typeof blockTypeIcons]}</span>
+                      <div>
+                        <div className="font-medium">{type.label}</div>
+                        <div className="text-xs text-muted-foreground">{type.description}</div>
+                      </div>
+                    </div>
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -76,8 +90,12 @@ const EditBlockDialog = ({ block, onSave }: EditBlockDialogProps) => {
               onChange={(e) => 
                 setEditedBlock(prev => ({ ...prev, label: e.target.value }))
               }
-              placeholder="Enter block label..."
+              placeholder="Enter a descriptive label for this block..."
+              className="w-full"
             />
+            <p className="text-xs text-muted-foreground">
+              A short, descriptive name for this prompt block
+            </p>
           </div>
           
           <div className="space-y-2">
@@ -89,8 +107,11 @@ const EditBlockDialog = ({ block, onSave }: EditBlockDialogProps) => {
                 setEditedBlock(prev => ({ ...prev, value: e.target.value }))
               }
               placeholder="Enter your prompt instruction..."
-              className="min-h-[100px]"
+              className="min-h-[150px] font-mono text-sm"
             />
+            <p className="text-xs text-muted-foreground">
+              The actual content of the prompt block that will be included in the final prompt
+            </p>
           </div>
         </div>
         

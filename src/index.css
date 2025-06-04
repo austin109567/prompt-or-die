@@ -1,41 +1,41 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
 @layer base {
   :root {
-    --background: 0 0% 5%;
-    --foreground: 0 0% 95%;
+    /* New modern dark theme with improved contrast and neon accents */
+    --background: 220 20% 2%;
+    --foreground: 210 40% 98%;
 
-    --card: 0 0% 8%;
-    --card-foreground: 0 0% 95%;
+    --card: 220 20% 4%;
+    --card-foreground: 210 40% 98%;
 
-    --popover: 0 0% 8%;
-    --popover-foreground: 0 0% 95%;
+    --popover: 220 20% 3%;
+    --popover-foreground: 210 40% 98%;
 
-    --primary: 120 100% 50%;
-    --primary-foreground: 0 0% 5%;
+    --primary: 140 100% 45%;
+    --primary-foreground: 210 40% 98%;
 
-    --secondary: 0 0% 12%;
-    --secondary-foreground: 0 0% 85%;
+    --secondary: 220 30% 10%;
+    --secondary-foreground: 210 40% 98%;
 
-    --muted: 0 0% 10%;
-    --muted-foreground: 0 0% 55%;
+    --muted: 220 20% 12%;
+    --muted-foreground: 220 10% 60%;
 
-    --accent: 180 100% 50%;
-    --accent-foreground: 0 0% 5%;
+    --accent: 185 100% 50%;
+    --accent-foreground: 210 40% 98%;
 
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 95%;
+    --destructive-foreground: 210 40% 98%;
 
-    --border: 0 0% 15%;
-    --input: 0 0% 12%;
-    --ring: 120 100% 50%;
+    --border: 220 20% 12%;
+    --input: 220 20% 10%;
+    --ring: 140 100% 45%;
 
-    --radius: 0.25rem;
+    --radius: 0.5rem;
   }
 }
 
@@ -45,18 +45,38 @@
   }
 
   body {
-    @apply bg-background text-foreground font-inter;
+    @apply bg-background text-foreground font-inter antialiased;
     font-family: 'Inter', sans-serif;
   }
 
   .font-mono {
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  
+  /* Custom scrollbar for the app */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-muted rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-primary/30;
   }
 }
 
 @layer components {
+  /* Enhanced glitch effect */
   .glitch-text {
     @apply relative;
+    text-shadow: 0 0 5px rgba(0, 255, 0, 0.2);
   }
   
   .glitch-text::before,
@@ -67,14 +87,17 @@
   
   .glitch-text::before {
     @apply text-accent opacity-80;
-    animation: glitch-1 0.5s infinite;
+    text-shadow: 1px 0 2px rgba(0, 255, 255, 0.4);
+    animation: glitch-1 0.8s infinite ease-in-out alternate-reverse;
   }
   
   .glitch-text::after {
     @apply text-primary opacity-80;
-    animation: glitch-2 0.5s infinite;
+    text-shadow: -1px 0 2px rgba(0, 255, 0, 0.4);
+    animation: glitch-2 1s infinite ease-in-out alternate-reverse;
   }
 
+  /* Fancy gradient border */
   .gradient-border {
     @apply relative overflow-hidden rounded-lg;
   }
@@ -85,6 +108,58 @@
     background: linear-gradient(45deg, hsl(var(--primary)), hsl(var(--accent)));
     mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     mask-composite: xor;
+    animation: gradient-shift 5s ease infinite;
+  }
+  
+  /* Block type styling */
+  .block-intent {
+    @apply border-l-4 border-l-primary bg-primary/10;
+  }
+  
+  .block-tone {
+    @apply border-l-4 border-l-accent bg-accent/10;
+  }
+  
+  .block-format {
+    @apply border-l-4 border-l-yellow-500 bg-yellow-500/10;
+  }
+  
+  .block-context {
+    @apply border-l-4 border-l-purple-500 bg-purple-500/10;
+  }
+  
+  .block-persona {
+    @apply border-l-4 border-l-pink-500 bg-pink-500/10;
+  }
+  
+  /* Shimmer effect for loading states */
+  .shimmer {
+    @apply relative overflow-hidden bg-muted/50;
+  }
+  
+  .shimmer::after {
+    content: "";
+    @apply absolute top-0 left-0 w-full h-full;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      hsla(var(--primary), 0.1),
+      transparent
+    );
+    animation: shimmer 1.5s infinite linear;
+  }
+  
+  /* Terminal-like code blocks */
+  .terminal-code {
+    @apply font-mono text-sm bg-muted p-4 rounded-md overflow-auto;
+    border: 1px solid hsla(var(--border));
+    box-shadow: 0 0 10px hsla(var(--primary), 0.1) inset;
+  }
+  
+  /* Glow effect for buttons */
+  .glow-effect:hover {
+    box-shadow: 0 0 15px hsla(var(--primary), 0.4);
+    transition: all 0.2s ease;
   }
 }
 
@@ -102,4 +177,9 @@
   40% { transform: translateX(2px); }
   60% { transform: translateX(-1px); }
   80% { transform: translateX(-2px); }
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
 }
