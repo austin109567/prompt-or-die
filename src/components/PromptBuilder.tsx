@@ -226,7 +226,7 @@ const PromptBuilder = ({ initialBlocks = [] }: PromptBuilderProps) => {
                 blocks={blocks}
                 generatedPrompt={generatedPrompt}
                 trigger={
-                  <Button variant="outline" className="border-accent text-accent hover:bg-accent/10">
+                  <Button variant="outline\" className="border-accent text-accent hover:bg-accent/10">
                     Export Options
                   </Button>
                 }
