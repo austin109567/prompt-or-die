@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { CloudCheck, Loader2, RefreshCw, Share2 } from "lucide-react";
+import { CloudCog as CloudCheck, Loader2, RefreshCw, Share2 } from "lucide-react";
 
 const DeploymentSettings = () => {
   const { toast } = useToast();
