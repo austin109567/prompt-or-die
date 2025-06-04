@@ -3,7 +3,8 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { X, Edit2 } from "lucide-react";
+import { X } from "lucide-react";
+import EditBlockDialog from "./EditBlockDialog";
 
 export interface PromptBlockProps {
   id: string;
@@ -11,7 +12,7 @@ export interface PromptBlockProps {
   label: string;
   value: string;
   onRemove?: (id: string) => void;
-  onEdit?: (id: string) => void;
+  onEdit?: (updatedBlock: PromptBlockProps) => void;
 }
 
 const blockTypeColors = {
@@ -24,6 +25,10 @@ const blockTypeColors = {
 
 const PromptBlock = ({ id, type, label, value, onRemove, onEdit }: PromptBlockProps) => {
   const [isHovered, setIsHovered] = useState(false);
+
+  const handleEdit = (updatedBlock: PromptBlockProps) => {
+    onEdit?.(updatedBlock);
+  };
 
   return (
     <Card 
@@ -38,14 +43,10 @@ const PromptBlock = ({ id, type, label, value, onRemove, onEdit }: PromptBlockPr
         </Badge>
         
         <div className="flex opacity-0 group-hover:opacity-100 transition-opacity space-x-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 w-6 p-0 hover:bg-muted"
-            onClick={() => onEdit?.(id)}
-          >
-            <Edit2 className="h-3 w-3" />
-          </Button>
+          <EditBlockDialog 
+            block={{ id, type, label, value }} 
+            onSave={handleEdit} 
+          />
           <Button
             variant="ghost"
             size="sm"

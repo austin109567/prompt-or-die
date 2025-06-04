@@ -1,7 +1,6 @@
 
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card } from "@/components/ui/card";
 import PromptBuilder from "./PromptBuilder";
 import TemplateGallery from "./TemplateGallery";
 
@@ -27,7 +26,12 @@ const Dashboard = () => {
         </TabsContent>
 
         <TabsContent value="templates" className="space-y-6">
-          <TemplateGallery />
+          <TemplateGallery 
+            onLoadTemplate={(blocks) => {
+              // Switch to builder tab when template is loaded
+              setActiveTab("builder");
+            }}
+          />
         </TabsContent>
       </Tabs>
     </div>

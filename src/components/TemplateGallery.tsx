@@ -3,60 +3,31 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Play, BookOpen } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { templates } from "./TemplateLoader";
 
-interface Template {
-  id: string;
-  name: string;
-  description: string;
-  category: string;
-  blocks: number;
-  useCase: string;
+interface TemplateGalleryProps {
+  onLoadTemplate?: (templateBlocks: any[]) => void;
 }
 
-const templates: Template[] = [
-  {
-    id: 'memebot',
-    name: 'MemeBot',
-    description: 'Generate absurdist meme captions and viral content',
-    category: 'Social',
-    blocks: 4,
-    useCase: 'Content Creation'
-  },
-  {
-    id: 'solana-trader',
-    name: 'Solana Trader',
-    description: 'Hype-driven trade recommendations with chaos energy',
-    category: 'Crypto',
-    blocks: 5,
-    useCase: 'Trading Signals'
-  },
-  {
-    id: 'dao-explainer',
-    name: 'DAO Explainer',
-    description: 'Summarize governance proposals with context memory',
-    category: 'Web3',
-    blocks: 6,
-    useCase: 'Governance'
-  },
-  {
-    id: 'ghostwriter',
-    name: 'Brand Ghostwriter',
-    description: 'Consistent founder voice for tweets and threads',
-    category: 'Marketing',
-    blocks: 4,
-    useCase: 'Brand Voice'
-  },
-  {
-    id: 'educator',
-    name: 'Tutor AI',
-    description: 'Explain complex topics like teaching a 5-year-old',
-    category: 'Education',
-    blocks: 3,
-    useCase: 'Learning'
-  }
-];
+const TemplateGallery = ({ onLoadTemplate }: TemplateGalleryProps) => {
+  const { toast } = useToast();
 
-const TemplateGallery = () => {
+  const handleUseTemplate = (template: any) => {
+    if (onLoadTemplate) {
+      onLoadTemplate(template.blocks);
+      toast({
+        title: "Template loaded!",
+        description: `${template.name} template has been loaded into your builder.`
+      });
+    } else {
+      toast({
+        title: "Template ready",
+        description: `${template.name} template selected. Switch to Builder tab to see it.`
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="text-center space-y-2">
@@ -74,7 +45,7 @@ const TemplateGallery = () => {
                 </Badge>
                 <div className="flex items-center text-xs text-muted-foreground">
                   <BookOpen className="h-3 w-3 mr-1" />
-                  {template.blocks} blocks
+                  {template.blocks.length} blocks
                 </div>
               </div>
 
@@ -90,6 +61,7 @@ const TemplateGallery = () => {
                 <Button 
                   size="sm" 
                   className="opacity-0 group-hover:opacity-100 transition-opacity bg-primary hover:bg-primary/90"
+                  onClick={() => handleUseTemplate(template)}
                 >
                   <Play className="h-3 w-3 mr-1" />
                   Use Template

@@ -4,7 +4,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Download, Play } from "lucide-react";
+import { Plus, Download, Play, Copy, Check } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import PromptBlock, { PromptBlockProps } from "./PromptBlock";
 
 const PromptBuilder = () => {
@@ -30,6 +31,8 @@ const PromptBuilder = () => {
   ]);
 
   const [generatedPrompt, setGeneratedPrompt] = useState('');
+  const [copied, setCopied] = useState(false);
+  const { toast } = useToast();
 
   const addNewBlock = () => {
     const newBlock: PromptBlockProps = {
@@ -45,9 +48,94 @@ const PromptBuilder = () => {
     setBlocks(blocks.filter(block => block.id !== id));
   };
 
+  const updateBlock = (updatedBlock: PromptBlockProps) => {
+    setBlocks(blocks.map(block => 
+      block.id === updatedBlock.id ? updatedBlock : block
+    ));
+  };
+
   const generatePrompt = () => {
-    const prompt = blocks.map(block => `[${block.type.toUpperCase()}]: ${block.value}`).join('\n\n');
+    if (blocks.length === 0) {
+      toast({
+        title: "No blocks found",
+        description: "Add some prompt blocks first!",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const prompt = blocks
+      .map(block => `## ${block.type.toUpperCase()}: ${block.label}\n${block.value}`)
+      .join('\n\n');
+    
     setGeneratedPrompt(prompt);
+    toast({
+      title: "Prompt generated!",
+      description: "Your modular prompt is ready for use."
+    });
+  };
+
+  const copyToClipboard = async () => {
+    if (!generatedPrompt) {
+      toast({
+        title: "Nothing to copy",
+        description: "Generate a prompt first!",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(generatedPrompt);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      toast({
+        title: "Copied!",
+        description: "Prompt copied to clipboard."
+      });
+    } catch (err) {
+      toast({
+        title: "Copy failed",
+        description: "Could not copy to clipboard.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const exportPrompt = () => {
+    if (!generatedPrompt) {
+      toast({
+        title: "Nothing to export",
+        description: "Generate a prompt first!",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const exportData = {
+      blocks: blocks,
+      generatedPrompt: generatedPrompt,
+      timestamp: new Date().toISOString(),
+      version: "1.0"
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+      type: 'application/json'
+    });
+    
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'prompt-or-die-export.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "Exported!",
+      description: "Prompt configuration downloaded as JSON."
+    });
   };
 
   return (
@@ -67,25 +155,41 @@ const PromptBuilder = () => {
         </div>
 
         <div className="space-y-4 max-h-[calc(100vh-300px)] overflow-y-auto pr-2">
-          {blocks.map((block) => (
-            <PromptBlock
-              key={block.id}
-              {...block}
-              onRemove={removeBlock}
-              onEdit={(id) => console.log('Edit block:', id)}
-            />
-          ))}
+          {blocks.length === 0 ? (
+            <Card className="p-8 text-center border-dashed">
+              <p className="text-muted-foreground mb-4">No prompt blocks yet</p>
+              <Button onClick={addNewBlock} variant="outline">
+                <Plus className="h-4 w-4 mr-2" />
+                Add your first block
+              </Button>
+            </Card>
+          ) : (
+            blocks.map((block) => (
+              <PromptBlock
+                key={block.id}
+                {...block}
+                onRemove={removeBlock}
+                onEdit={updateBlock}
+              />
+            ))
+          )}
         </div>
 
         <div className="flex space-x-3">
           <Button 
             onClick={generatePrompt}
             className="flex-1 bg-primary hover:bg-primary/90"
+            disabled={blocks.length === 0}
           >
             <Play className="h-4 w-4 mr-2" />
             Generate Prompt
           </Button>
-          <Button variant="outline" className="border-accent text-accent hover:bg-accent/10">
+          <Button 
+            variant="outline" 
+            className="border-accent text-accent hover:bg-accent/10"
+            onClick={exportPrompt}
+            disabled={!generatedPrompt}
+          >
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
@@ -94,7 +198,24 @@ const PromptBuilder = () => {
 
       {/* Preview Panel */}
       <div className="space-y-6">
-        <h2 className="text-xl font-bold">Live Preview</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold">Live Preview</h2>
+          {generatedPrompt && (
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={copyToClipboard}
+              className="flex items-center space-x-2"
+            >
+              {copied ? (
+                <Check className="h-4 w-4 text-green-500" />
+              ) : (
+                <Copy className="h-4 w-4" />
+              )}
+              <span>{copied ? 'Copied!' : 'Copy'}</span>
+            </Button>
+          )}
+        </div>
         
         <Card className="p-6 h-full min-h-[400px]">
           <div className="space-y-4">
@@ -107,7 +228,7 @@ const PromptBuilder = () => {
             
             <Separator />
             
-            <div className="font-mono text-sm bg-muted/50 p-4 rounded min-h-[200px] max-h-[300px] overflow-y-auto">
+            <div className="font-mono text-sm bg-muted/50 p-4 rounded min-h-[200px] max-h-[300px] overflow-y-auto whitespace-pre-wrap">
               {generatedPrompt || (
                 <span className="text-muted-foreground italic">
                   Click "Generate Prompt" to see your composed prompt here...
