@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 import { Plus, Download, Play } from "lucide-react";
 import PromptBlock, { PromptBlockProps } from "./PromptBlock";
 
