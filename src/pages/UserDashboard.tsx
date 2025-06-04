@@ -110,16 +110,35 @@ const UserDashboard = () => {
     const fetchUserData = async () => {
       if (user) {
         try {
-          // Get user profile
+          // Get user profile - using maybeSingle() instead of single()
           const { data: profileData, error: profileError } = await supabase
             .from('users')
             .select('*')
             .eq('id', user.id)
-            .single();
+            .maybeSingle();
             
           if (profileError) throw profileError;
           
-          setUserProfile(profileData);
+          // If no user profile exists, create one
+          if (!profileData) {
+            const username = user.email ? user.email.split('@')[0] : `user_${Math.random().toString(36).substring(2, 8)}`;
+            
+            const { data: newUserData, error: createError } = await supabase
+              .from('users')
+              .insert({
+                id: user.id,
+                email: user.email,
+                handle: username
+              })
+              .select()
+              .single();
+              
+            if (createError) throw createError;
+            
+            setUserProfile(newUserData);
+          } else {
+            setUserProfile(profileData);
+          }
           
           // Get user projects
           const { data: projectsData, error: projectsError } = await supabase
