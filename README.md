@@ -92,3 +92,17 @@ Run ESLint to check code quality:
 ```bash
 npm run lint
 ```
+
+## CLI Usage
+
+The repository includes a small command line tool named `pad` that mirrors the
+browser terminal. Install dependencies with `npm install` and run commands via
+`node cli/index.js`:
+
+```bash
+node cli/index.js build blocks.json
+node cli/index.js inject prompt.txt "More context" --mode append
+```
+
+Run `node cli/index.js --help` to see all available options including login,
+prompt generation and clipboard export.
