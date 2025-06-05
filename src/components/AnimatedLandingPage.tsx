@@ -35,6 +35,8 @@ interface Particle {
   targetIndex?: number;
   isInWord: boolean;
   wordFormed: boolean;
+  originalVx?: number;
+  originalVy?: number;
 }
 
 const AnimatedLandingPage = () => {
@@ -45,7 +47,7 @@ const AnimatedLandingPage = () => {
   const animationFrameRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
-  const [formedWords, setFormedWords] = useState<{[key: string]: {x: number, y: number, word: string}}>({}); 
+  const [formedWords, setFormedWords] = useState<{[key: string]: {x: number, y: number, word: string, vx: number, vy: number}}>({}); 
 
   // Set up particles
   useEffect(() => {
@@ -72,7 +74,7 @@ const AnimatedLandingPage = () => {
   useEffect(() => {
     if (dimensions.width === 0 || dimensions.height === 0) return;
 
-    // Generate random particles
+    // Generate random particles distributed throughout the canvas
     const initialParticles: Particle[] = Array.from({ length: 100 }).map((_, i) => ({
       id: `particle-${i}`,
       x: Math.random() * dimensions.width,
@@ -108,7 +110,7 @@ const AnimatedLandingPage = () => {
       lastTimeRef.current = timestamp;
 
       // Keep track of formed words to display them separately
-      const newFormedWords: {[key: string]: {x: number, y: number, word: string}} = {...formedWords};
+      const newFormedWords: {[key: string]: {x: number, y: number, word: string, vx: number, vy: number}} = {...formedWords};
       
       setParticles(prevParticles => {
         // Occasionally try to form a word
@@ -140,15 +142,17 @@ const AnimatedLandingPage = () => {
                   const starterIndex = updatedParticles.findIndex(p => p.id === starterParticle.id);
                   
                   // Position the words in a reasonable area of the screen
-                  const wordX = Math.random() * (dimensions.width - 200) + 100; 
-                  const wordY = Math.random() * (dimensions.height - 200) + 100;
+                  const wordX = Math.random() * (dimensions.width - 300) + 150; 
+                  const wordY = Math.random() * (dimensions.height - 300) + 150;
                   
                   // Update the starter particle
                   updatedParticles[starterIndex] = {
                     ...updatedParticles[starterIndex],
                     targetWord,
                     targetIndex: 0,
-                    isInWord: true
+                    isInWord: true,
+                    originalVx: updatedParticles[starterIndex].vx,
+                    originalVy: updatedParticles[starterIndex].vy
                   };
                   
                   // Assign the remaining letters
@@ -160,7 +164,9 @@ const AnimatedLandingPage = () => {
                         letter: targetWord[i + 1],  // +1 because we already have the first letter
                         targetWord,
                         targetIndex: i + 1,
-                        isInWord: true
+                        isInWord: true,
+                        originalVx: updatedParticles[particleIndex].vx,
+                        originalVy: updatedParticles[particleIndex].vy
                       };
                     }
                   }
@@ -184,12 +190,16 @@ const AnimatedLandingPage = () => {
             if (isWordComplete) {
               for (const p of wordParticles) {
                 if (p.targetIndex !== undefined) {
-                  const centerX = dimensions.width / 2 - (particle.targetWord.length * letterSpacing) / 2;
-                  const targetX = centerX + (p.targetIndex * letterSpacing);
-                  const targetY = dimensions.height / 2;
+                  const targetX = Math.random() * (dimensions.width * 0.6) + (dimensions.width * 0.2);
+                  const targetY = Math.random() * (dimensions.height * 0.6) + (dimensions.height * 0.2);
+                  const wordCenterX = targetX - (particle.targetWord.length * letterSpacing) / 2;
+                  const wordCenterY = targetY;
                   
-                  const dx = targetX - p.x;
-                  const dy = targetY - p.y;
+                  const particleTargetX = wordCenterX + (p.targetIndex * letterSpacing);
+                  const particleTargetY = wordCenterY;
+                  
+                  const dx = particleTargetX - p.x;
+                  const dy = particleTargetY - p.y;
                   const distance = Math.sqrt(dx * dx + dy * dy);
                   
                   if (distance > 2) {
@@ -204,13 +214,19 @@ const AnimatedLandingPage = () => {
             if (isWordComplete && allInPosition && !particle.wordFormed) {
               // Record the formed word to display separately
               const wordId = `word-${Date.now()}-${Math.random()}`; 
-              const centerX = dimensions.width / 2 - (particle.targetWord.length * letterSpacing) / 2;
-              const centerY = dimensions.height / 2;
+              const wordCenterX = dimensions.width * 0.5 - (particle.targetWord.length * letterSpacing) / 2;
+              const wordCenterY = dimensions.height * 0.5;
+              
+              // Determine the reverse direction for the formed word
+              const avgVx = wordParticles.reduce((sum, p) => sum + (p.originalVx || 0), 0) / wordParticles.length;
+              const avgVy = wordParticles.reduce((sum, p) => sum + (p.originalVy || 0), 0) / wordParticles.length;
               
               newFormedWords[wordId] = {
-                x: centerX,
-                y: centerY,
-                word: particle.targetWord
+                x: wordCenterX,
+                y: wordCenterY,
+                word: particle.targetWord,
+                vx: -avgVx * 2, // Reverse direction and increase speed
+                vy: -avgVy * 2
               };
               
               // Mark all particles in this word as formed
@@ -222,12 +238,18 @@ const AnimatedLandingPage = () => {
             
             // Calculate target position for particles in the word
             if (particle.targetIndex !== undefined) {
-              const centerX = dimensions.width / 2 - (particle.targetWord.length * letterSpacing) / 2;
-              const targetX = centerX + (particle.targetIndex * letterSpacing);
-              const targetY = dimensions.height / 2;
+              // Dynamically determine a position in the canvas for this word to form
+              // This ensures words don't always form in the same place
+              const targetX = Math.random() * (dimensions.width * 0.6) + (dimensions.width * 0.2);
+              const targetY = Math.random() * (dimensions.height * 0.6) + (dimensions.height * 0.2);
+              const wordCenterX = targetX - (particle.targetWord.length * letterSpacing) / 2;
+              const wordCenterY = targetY;
               
-              const dx = targetX - particle.x;
-              const dy = targetY - particle.y;
+              const particleTargetX = wordCenterX + (particle.targetIndex * letterSpacing);
+              const particleTargetY = wordCenterY;
+              
+              const dx = particleTargetX - particle.x;
+              const dy = particleTargetY - particle.y;
               
               // Apply attraction forces
               return {
@@ -299,9 +321,37 @@ const AnimatedLandingPage = () => {
         });
       });
       
-      // Update formed words state if changed
+      // Update formed words state and animate them
       if (Object.keys(newFormedWords).length !== Object.keys(formedWords).length) {
         setFormedWords(newFormedWords);
+      } else {
+        // Animate existing formed words
+        const updatedFormedWords = {...newFormedWords};
+        Object.keys(formedWords).forEach(wordId => {
+          if (formedWords[wordId]) {
+            const word = formedWords[wordId];
+            
+            // Move the word in its reverse direction
+            let newX = word.x + word.vx * (deltaTime / 32);
+            let newY = word.y + word.vy * (deltaTime / 32);
+            
+            // Remove words that go off-screen
+            if (newX < -100 || newX > dimensions.width + 100 || 
+                newY < -100 || newY > dimensions.height + 100) {
+              delete updatedFormedWords[wordId];
+            } else {
+              updatedFormedWords[wordId] = {
+                ...word,
+                x: newX,
+                y: newY
+              };
+            }
+          }
+        });
+        
+        if (Object.keys(updatedFormedWords).length !== Object.keys(formedWords).length) {
+          setFormedWords(updatedFormedWords);
+        }
       }
       
       animationFrameRef.current = requestAnimationFrame(animate);
@@ -337,7 +387,7 @@ const AnimatedLandingPage = () => {
             delete updated[wordId];
             return updated;
           });
-        }, 5000 + Math.random() * 3000); // Display for 5-8 seconds
+        }, 8000 + Math.random() * 4000); // Display for 8-12 seconds
       }
     });
     
@@ -384,13 +434,22 @@ const AnimatedLandingPage = () => {
               opacity: 0
             }}
             animate={{
-              opacity: [0, 1, 1, 0],
+              opacity: [0, 1, 1, 0.8],
               scale: [0.8, 1.2, 1, 0.9],
+              x: x,
+              y: y
             }}
             transition={{
-              duration: 5,
-              times: [0, 0.1, 0.8, 1],
-              ease: "easeInOut"
+              opacity: {
+                duration: 8,
+                times: [0, 0.1, 0.8, 1]
+              },
+              scale: {
+                duration: 8,
+                times: [0, 0.1, 0.3, 1]
+              },
+              x: { duration: 0.1 },
+              y: { duration: 0.1 }
             }}
           >
             {word}
