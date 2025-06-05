@@ -8,17 +8,20 @@ import { useToast } from "@/hooks/use-toast";
 
 interface AIPreviewProps {
   prompt: string;
+  promptText?: string;
   onPreviewGenerated?: (preview: string) => void;
 }
 
-const AIPreview = ({ prompt, onPreviewGenerated }: AIPreviewProps) => {
+const AIPreview = ({ prompt, promptText, onPreviewGenerated }: AIPreviewProps) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [preview, setPreview] = useState('');
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
 
+  const currentPrompt = prompt || promptText || '';
+
   const generatePreview = async () => {
-    if (!prompt.trim()) {
+    if (!currentPrompt.trim()) {
       toast({
         title: "No prompt provided",
         description: "Please add some prompt content first",
@@ -32,7 +35,7 @@ const AIPreview = ({ prompt, onPreviewGenerated }: AIPreviewProps) => {
       // Simulate AI preview generation
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      const mockPreview = `AI Preview for: "${prompt.substring(0, 50)}..."\n\nThis is a simulated AI response that would be generated based on your prompt. The actual AI integration would process your prompt and return relevant content here.`;
+      const mockPreview = `AI Preview for: "${currentPrompt.substring(0, 50)}..."\n\nThis is a simulated AI response that would be generated based on your prompt. The actual AI integration would process your prompt and return relevant content here.`;
       
       setPreview(mockPreview);
       onPreviewGenerated?.(mockPreview);
@@ -84,7 +87,7 @@ const AIPreview = ({ prompt, onPreviewGenerated }: AIPreviewProps) => {
       <CardContent className="space-y-4">
         <Button 
           onClick={generatePreview}
-          disabled={isGenerating || !prompt.trim()}
+          disabled={isGenerating || !currentPrompt.trim()}
           className="w-full"
         >
           {isGenerating ? (

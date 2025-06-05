@@ -10,6 +10,9 @@ interface BlockListProps {
   onUpdateBlock: (block: PromptBlockProps) => void;
   onDeleteBlock: (block: PromptBlockProps) => void;
   onDuplicateBlock: (block: PromptBlockProps) => void;
+  onRemove: (id: string) => void;
+  onUpdate: (block: PromptBlockProps) => void;
+  onDuplicate: (block: PromptBlockProps) => void;
   onDragStart?: (index: number) => void;
   onDragOver?: (e: React.DragEvent) => void;
   onDrop?: (e: React.DragEvent, index: number) => void;
@@ -21,11 +24,29 @@ const BlockList = ({
   onUpdateBlock,
   onDeleteBlock,
   onDuplicateBlock,
+  onRemove,
+  onUpdate,
+  onDuplicate,
   onDragStart,
   onDragOver,
   onDrop,
   draggedIndex
 }: BlockListProps) => {
+  const handleUpdate = (block: PromptBlockProps) => {
+    onUpdateBlock?.(block);
+    onUpdate?.(block);
+  };
+
+  const handleDelete = (block: PromptBlockProps) => {
+    onDeleteBlock?.(block);
+    onRemove?.(block.id);
+  };
+
+  const handleDuplicate = (block: PromptBlockProps) => {
+    onDuplicateBlock?.(block);
+    onDuplicate?.(block);
+  };
+
   return (
     <div className="space-y-3">
       {blocks.map((block, index) => (
@@ -50,7 +71,7 @@ const BlockList = ({
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => onDuplicateBlock(block)}
+                      onClick={() => handleDuplicate(block)}
                       className="h-7 w-7 p-0"
                     >
                       <Copy className="h-3 w-3" />
@@ -58,7 +79,7 @@ const BlockList = ({
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => onDeleteBlock(block)}
+                      onClick={() => handleDelete(block)}
                       className="h-7 w-7 p-0 hover:text-destructive"
                     >
                       <Trash2 className="h-3 w-3" />
@@ -69,14 +90,14 @@ const BlockList = ({
                 <input
                   type="text"
                   value={block.label}
-                  onChange={(e) => onUpdateBlock({ ...block, label: e.target.value })}
+                  onChange={(e) => handleUpdate({ ...block, label: e.target.value })}
                   className="w-full text-sm font-medium bg-transparent border-none p-0 focus:outline-none focus:ring-0"
                   placeholder="Block label..."
                 />
                 
                 <textarea
                   value={block.value}
-                  onChange={(e) => onUpdateBlock({ ...block, value: e.target.value })}
+                  onChange={(e) => handleUpdate({ ...block, value: e.target.value })}
                   className="w-full text-sm bg-transparent border-none p-0 resize-none focus:outline-none focus:ring-0 min-h-[60px]"
                   placeholder="Enter your prompt content..."
                 />
