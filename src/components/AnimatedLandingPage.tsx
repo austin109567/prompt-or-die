@@ -18,7 +18,7 @@ interface Rod {
   id: string;
   x: number;
   y: number;
-  length: number;
+  length: number; 
   angle: number;
   vx: number;
   vy: number;
@@ -28,24 +28,42 @@ interface Rod {
   inHelix: boolean;
   helixId?: string;
   helixPosition?: number;
-  helixStrand?: 'top' | 'bottom';
+  helixStrand?: 'backbone' | 'basepair';
+  blur?: number;
+  scale?: number;
 }
 
 interface DNAHelix {
   id: string;
   rods: string[];
+  backboneRods: string[];
+  basepairRods: string[];
   centerX: number;
   centerY: number;
   vx: number;
   vy: number;
-  length: number;
-  width: number;
+  width: number; // 2nm in pixels
+  height: number; // Height per complete turn (3.4nm)
+  turns: number; // Number of complete turns
   rotation: number;
   vRotation: number;
-  winding: number; // Controls the tightness of the helix
-  phase: number; // Phase offset for animation
-  age: number;
+  formationProgress: number; // 0 to 1
+  age: number; 
   decaying: boolean;
+  decayProgress: number; // 0 to 1
+  particles: Particle[];
+}
+
+interface Particle {
+  id: string;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  size: number;
+  opacity: number;
+  lifespan: number;
+  age: number;
 }
 
 const AnimatedLandingPage = () => {
@@ -53,6 +71,7 @@ const AnimatedLandingPage = () => {
   const [currentPhrase, setCurrentPhrase] = useState(0);
   const [rods, setRods] = useState<Rod[]>([]);
   const [helices, setHelices] = useState<{[key: string]: DNAHelix}>({});
+  const [particles, setParticles] = useState<Particle[]>([]);
   const canvasRef = useRef<HTMLDivElement>(null);
   const animationFrameRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
@@ -83,12 +102,13 @@ const AnimatedLandingPage = () => {
   useEffect(() => {
     if (dimensions.width === 0 || dimensions.height === 0) return;
 
-    // Generate random rods
-    const initialRods: Rod[] = Array.from({ length: 100 }).map((_, i) => {
+    // Generate random rods with more subtle, fluid appearance
+    const initialRods: Rod[] = Array.from({ length: 120 }).map((_, i) => {
       const x = Math.random() * dimensions.width;
       const y = Math.random() * dimensions.height;
       const angle = Math.random() * Math.PI * 2;
-      const length = 20 + Math.random() * 10; // More consistent rod length
+      // More consistent rod lengths based on DNA proportions
+      const length = 15 + Math.random() * 5; 
       
       return {
         id: `rod-${i}`,
@@ -96,12 +116,15 @@ const AnimatedLandingPage = () => {
         y,
         length,
         angle,
-        vx: (Math.random() - 0.5) * 0.5,
-        vy: (Math.random() - 0.5) * 0.5,
-        vAngle: (Math.random() - 0.5) * 0.02,
-        color: theme === 'dark' ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.7)',
-        opacity: 0.7 + Math.random() * 0.3,
-        inHelix: false
+        vx: (Math.random() - 0.5) * 0.3, // Slower initial motion
+        vy: (Math.random() - 0.5) * 0.3,
+        vAngle: (Math.random() - 0.5) * 0.01,
+        color: theme === 'dark' 
+          ? `rgba(${220 + Math.random() * 35}, ${220 + Math.random() * 35}, ${220 + Math.random() * 35}, 0.6)` 
+          : `rgba(${30 + Math.random() * 30}, ${30 + Math.random() * 30}, ${30 + Math.random() * 30}, 0.6)`,
+        opacity: 0.3 + Math.random() * 0.05, // 30-35% opacity
+        inHelix: false,
+        scale: 1.0
       };
     });
 
@@ -116,18 +139,23 @@ const AnimatedLandingPage = () => {
       if (!lastTimeRef.current) lastTimeRef.current = timestamp;
       const deltaTime = timestamp - lastTimeRef.current;
       lastTimeRef.current = timestamp;
+      const dt = deltaTime / 16; // Normalize by 16ms (60fps)
 
       // Update rods
       setRods(prevRods => {
         return prevRods.map(rod => {
           if (rod.inHelix) return rod;
           
-          // Move the rod
-          let newX = rod.x + rod.vx * (deltaTime / 16);
-          let newY = rod.y + rod.vy * (deltaTime / 16);
-          let newAngle = rod.angle + rod.vAngle * (deltaTime / 16);
+          // Apply cubic bezier easing to motion for organic movement
+          const easeInOut = t => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+          const easeFactor = easeInOut(0.5 + Math.sin(timestamp * 0.001) * 0.5);
           
-          // Bounce off walls
+          // Move the rod with eased motion
+          let newX = rod.x + rod.vx * dt * easeFactor;
+          let newY = rod.y + rod.vy * dt * easeFactor;
+          let newAngle = rod.angle + rod.vAngle * dt;
+          
+          // Bounce off walls with soft edge handling
           let newVx = rod.vx;
           let newVy = rod.vy;
           
@@ -138,25 +166,25 @@ const AnimatedLandingPage = () => {
           const endY2 = newY - Math.sin(newAngle) * halfLength;
           
           if (endX1 < 0 || endX2 < 0 || endX1 > dimensions.width || endX2 > dimensions.width) {
-            newVx = -newVx;
-            newAngle = Math.PI - newAngle;
+            newVx = -newVx * 0.9; // Soft bounce
+            newAngle = Math.PI - newAngle + (Math.random() - 0.5) * 0.1; // Slight variation
           }
           
           if (endY1 < 0 || endY2 < 0 || endY1 > dimensions.height || endY2 > dimensions.height) {
-            newVy = -newVy;
-            newAngle = -newAngle;
+            newVy = -newVy * 0.9; // Soft bounce
+            newAngle = -newAngle + (Math.random() - 0.5) * 0.1; // Slight variation
           }
           
-          // Slight random movement
-          if (Math.random() < 0.03) {
-            newVx += (Math.random() - 0.5) * 0.1;
-            newVy += (Math.random() - 0.5) * 0.1;
+          // Gentle random motion
+          if (Math.random() < 0.02) {
+            newVx += (Math.random() - 0.5) * 0.05;
+            newVy += (Math.random() - 0.5) * 0.05;
             
-            // Limit speed
+            // Limit speed for more controlled movement
             const speed = Math.sqrt(newVx * newVx + newVy * newVy);
-            if (speed > 0.8) {
-              newVx = (newVx / speed) * 0.8;
-              newVy = (newVy / speed) * 0.8;
+            if (speed > 0.5) {
+              newVx = (newVx / speed) * 0.5;
+              newVy = (newVy / speed) * 0.5;
             }
           }
           
@@ -171,14 +199,24 @@ const AnimatedLandingPage = () => {
         });
       });
 
-      // Try to form DNA helix
-      if (Math.random() < 0.008) {
+      // Try to form DNA helix at a controlled rate
+      if (Math.random() < 0.004) { // Reduced frequency for more deliberate formation
         formDNAHelix();
       }
       
       // Update existing helices
       updateHelices(deltaTime);
       
+      // Update particles
+      updateParticles(deltaTime);
+      
+      // Generate ambient particles around helices
+      Object.values(helices).forEach(helix => {
+        if (Math.random() < 0.1 * dt) {
+          generateAmbientParticle(helix);
+        }
+      });
+
       animationFrameRef.current = requestAnimationFrame(animate);
     };
 
@@ -196,54 +234,75 @@ const AnimatedLandingPage = () => {
     // Find free rods
     const freeRods = rods.filter(rod => !rod.inHelix);
     
-    // We need at least 12 rods for a decent helix
-    const numRods = 12 + Math.floor(Math.random() * 12); // 12-24 rods
+    // We need enough rods for a scientifically accurate DNA model
+    // Each turn needs 10 base pairs (20 rods) plus 20 backbone rods
+    const basePairsPerTurn = 10;
+    const turns = 1 + Math.floor(Math.random() * 2); // 1-2 turns
+    const backboneRodsNeeded = turns * basePairsPerTurn * 2;
+    const basepairRodsNeeded = turns * basePairsPerTurn;
+    const totalRodsNeeded = backboneRodsNeeded + basepairRodsNeeded;
     
-    if (freeRods.length < numRods) return;
+    if (freeRods.length < totalRodsNeeded) return;
     
     // Choose random position for helix center
-    const centerX = Math.random() * (dimensions.width * 0.7) + (dimensions.width * 0.15);
-    const centerY = Math.random() * (dimensions.height * 0.7) + (dimensions.height * 0.15);
+    const centerX = Math.random() * (dimensions.width * 0.6) + (dimensions.width * 0.2);
+    const centerY = Math.random() * (dimensions.height * 0.6) + (dimensions.height * 0.2);
     
     // Choose random rods
-    const selectedRodIds = freeRods
+    const selectedRods = freeRods
       .sort(() => Math.random() - 0.5)
-      .slice(0, numRods)
+      .slice(0, totalRodsNeeded);
+    
+    // Separate backbone and basepair rods
+    const backboneRodIds = selectedRods
+      .slice(0, backboneRodsNeeded)
+      .map(rod => rod.id);
+      
+    const basepairRodIds = selectedRods
+      .slice(backboneRodsNeeded)
       .map(rod => rod.id);
     
     // Create a new DNA helix
     const helixId = `helix-${Date.now()}-${Math.random()}`;
+    const allRodIds = [...backboneRodIds, ...basepairRodIds];
+    
     const newHelix: DNAHelix = {
       id: helixId,
-      rods: selectedRodIds,
+      rods: allRodIds,
+      backboneRods: backboneRodIds,
+      basepairRods: basepairRodIds,
       centerX,
       centerY,
-      vx: (Math.random() - 0.5) * 0.3,
-      vy: (Math.random() - 0.5) * 0.3,
-      length: numRods * 8, // Length based on number of rods
-      width: 30 + Math.random() * 15, // Width of the helix
+      vx: (Math.random() - 0.5) * 0.2,
+      vy: (Math.random() - 0.5) * 0.2,
+      width: 20, // Width of the helix (2nm proportion)
+      height: 34 * turns, // Height for the total turns (3.4nm per turn)
+      turns,
       rotation: Math.random() * Math.PI * 2,
-      vRotation: (Math.random() - 0.5) * 0.01,
-      winding: 0.3 + Math.random() * 0.2, // How tight the helix winds
-      phase: Math.random() * Math.PI * 2,
+      vRotation: (Math.random() < 0.5 ? 1 : -1) * (0.8 / 60) * 2 * Math.PI, // 0.8 turns per second
+      formationProgress: 0, // Start at 0 and animate to 1
       age: 0,
-      decaying: false
+      decaying: false,
+      decayProgress: 0,
+      particles: []
     };
     
     // Update the rods to be part of the helix
     setRods(prevRods => {
-      return prevRods.map((rod, index) => {
-        if (selectedRodIds.includes(rod.id)) {
-          const position = selectedRodIds.indexOf(rod.id);
-          const isTopStrand = position % 2 === 0;
+      return prevRods.map(rod => {
+        if (allRodIds.includes(rod.id)) {
+          const isBackbone = backboneRodIds.includes(rod.id);
           
           return {
             ...rod,
             inHelix: true,
             helixId,
-            helixPosition: Math.floor(position / 2),
-            helixStrand: isTopStrand ? 'top' : 'bottom',
-            color: 'rgba(200, 200, 255, 0.9)' // Slightly blue for fresh DNA
+            helixStrand: isBackbone ? 'backbone' : 'basepair',
+            color: isBackbone 
+              ? 'rgba(230, 230, 230, 0.85)' 
+              : 'rgba(210, 210, 255, 0.85)',
+            opacity: 0.8,
+            scale: 0
           };
         }
         return rod;
@@ -268,18 +327,62 @@ const AnimatedLandingPage = () => {
       // Update age
       helix.age += deltaTime / 1000; // Convert to seconds
       
+      // Update formation progress (over 5-7 seconds)
+      const formationDuration = 5 + Math.random() * 2;
+      if (helix.formationProgress < 1) {
+        // Use cubic-bezier for organic formation
+        const t = Math.min(1, helix.age / formationDuration);
+        const cubic = (t: number) => {
+          // Cubic bezier approximation for organic movement
+          return t < 0.5 
+            ? 4 * t * t * t 
+            : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        };
+        
+        helix.formationProgress = cubic(t);
+        helicesChanged = true;
+      }
+      
       // Check if helix should start decaying (after 6 seconds)
       if (!helix.decaying && helix.age > 6) {
         helix.decaying = true;
         helicesChanged = true;
+      }
+      
+      // Update decay progress (over 3-4 seconds)
+      const decayDuration = 3 + Math.random();
+      if (helix.decaying) {
+        helix.decayProgress = Math.min(1, (helix.age - 6) / decayDuration);
+        helicesChanged = true;
         
-        // Change color of rods to deep crimson red
+        // Color transition to crimson
+        const decayT = helix.decayProgress;
         setRods(prevRods => {
           return prevRods.map(rod => {
             if (rod.helixId === helixId) {
+              const isBasepair = rod.helixStrand === 'basepair';
+              
+              // Create a gradient transition to crimson
+              // Start RGB values
+              const startR = isBasepair ? 210 : 230;
+              const startG = isBasepair ? 210 : 230;
+              const startB = isBasepair ? 255 : 230;
+              
+              // End RGB values (crimson: #DC143C -> 220, 20, 60)
+              const endR = 220;
+              const endG = 20;
+              const endB = 60;
+              
+              // Interpolate RGB values
+              const r = Math.round(startR + (endR - startR) * decayT);
+              const g = Math.round(startG + (endG - startG) * decayT);
+              const b = Math.round(startB + (endB - startB) * decayT);
+              
               return {
                 ...rod,
-                color: 'rgba(139, 0, 0, 0.9)' // Deep crimson red
+                color: `rgba(${r}, ${g}, ${b}, ${0.85 - decayT * 0.35})`,
+                blur: decayT * 2, // Add blur during decay
+                scale: 1 - decayT * 0.3 // Slight scale reduction during decay
               };
             }
             return rod;
@@ -287,24 +390,33 @@ const AnimatedLandingPage = () => {
         });
       }
       
-      // Remove helix if it's been decaying for more than 4 seconds
-      if (helix.decaying && helix.age > 10) {
-        // Release rods from the helix
+      // Remove helix if fully decayed
+      if (helix.decaying && helix.decayProgress >= 1) {
+        // Release rods from the helix with dispersion
         setRods(prevRods => {
           return prevRods.map(rod => {
             if (rod.helixId === helixId) {
-              // Release rod with velocity in the opposite direction
+              // Calculate dispersion direction (away from helix center)
+              const dx = rod.x - helix.centerX;
+              const dy = rod.y - helix.centerY;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              const normalizedDx = dist > 0 ? dx / dist : 0;
+              const normalizedDy = dist > 0 ? dy / dist : 0;
+              
               return {
                 ...rod,
                 inHelix: false,
                 helixId: undefined,
                 helixPosition: undefined,
                 helixStrand: undefined,
-                vx: (Math.random() - 0.5) * 0.7,
-                vy: (Math.random() - 0.5) * 0.7,
+                // Velocity away from center with randomness
+                vx: normalizedDx * (0.5 + Math.random() * 0.5),
+                vy: normalizedDy * (0.5 + Math.random() * 0.5),
                 vAngle: (Math.random() - 0.5) * 0.04,
                 color: theme === 'dark' ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.7)',
-                opacity: 0.7 + Math.random() * 0.3
+                opacity: 0.3 + Math.random() * 0.05,
+                blur: 0,
+                scale: 1
               };
             }
             return rod;
@@ -321,61 +433,123 @@ const AnimatedLandingPage = () => {
       helix.centerX += helix.vx * (deltaTime / 16);
       helix.centerY += helix.vy * (deltaTime / 16);
       helix.rotation += helix.vRotation * (deltaTime / 16);
-      helix.phase += 0.01 * (deltaTime / 16); // Animate the helix rotation
       
-      // Bounce off walls
-      if (helix.centerX < helix.width/2 || helix.centerX > dimensions.width - helix.width/2) {
-        helix.vx = -helix.vx;
+      // Bounce off walls with padding
+      const padding = Math.max(helix.width, helix.height) / 2;
+      if (helix.centerX < padding || helix.centerX > dimensions.width - padding) {
+        helix.vx = -helix.vx * 0.8;
       }
-      if (helix.centerY < helix.length/2 || helix.centerY > dimensions.height - helix.length/2) {
-        helix.vy = -helix.vy;
+      if (helix.centerY < padding || helix.centerY > dimensions.height - padding) {
+        helix.vy = -helix.vy * 0.8;
       }
       
       // Position the rods to form the DNA double helix
-      const rodCount = helix.rods.length;
-      const rodPairs = Math.floor(rodCount / 2);
+      // For scientifically accurate proportions
+      const basePairsPerTurn = 10;
+      const turnHeight = helix.height / helix.turns;
       
-      helix.rods.forEach((rodId, index) => {
+      // Position backbone rods
+      helix.backboneRods.forEach((rodId, index) => {
         const rodIndex = rods.findIndex(r => r.id === rodId);
         if (rodIndex !== -1) {
-          const rod = rods[rodIndex];
-          const isTopStrand = index % 2 === 0;
-          const pairPosition = Math.floor(index / 2);
+          const isLeftBackbone = index < helix.backboneRods.length / 2;
+          const backboneIndex = isLeftBackbone 
+            ? index 
+            : index - helix.backboneRods.length / 2;
           
-          // Calculate vertical position along the helix
-          const verticalStep = helix.length / (rodPairs + 1);
-          const verticalOffset = -helix.length/2 + (pairPosition + 1) * verticalStep;
+          // Smooth formation animation using formationProgress
+          const formationT = Math.min(1, helix.formationProgress * 2); // Double speed for early appearance
           
-          // Calculate horizontal position with sine wave for double helix effect
-          const angleOffset = pairPosition * helix.winding + helix.phase;
-          const horizontalOffset = Math.sin(angleOffset) * helix.width/2;
+          // Calculate position along the helix
+          const turnProgress = (backboneIndex % basePairsPerTurn) / basePairsPerTurn;
+          const turnIndex = Math.floor(backboneIndex / basePairsPerTurn);
           
-          // Apply the helix rotation
-          const rotatedX = Math.cos(helix.rotation) * horizontalOffset;
-          const rotatedY = Math.sin(helix.rotation) * horizontalOffset;
+          // Vertical position
+          const verticalProgress = (turnIndex + turnProgress) / helix.turns;
+          const verticalOffset = -helix.height/2 + verticalProgress * helix.height;
           
-          // Final position
-          const newX = helix.centerX + rotatedX;
-          const newY = helix.centerY + rotatedY + verticalOffset;
+          // Angle around the helix
+          const angleOffset = turnProgress * Math.PI * 2 + (isLeftBackbone ? 0 : Math.PI);
           
-          // Angle for the rod - perpendicular to the helix curve
-          const tangentAngle = Math.atan2(
-            Math.cos(angleOffset) * (isTopStrand ? 1 : -1),
-            helix.winding
-          ) + helix.rotation + (isTopStrand ? Math.PI/2 : -Math.PI/2);
+          // Apply the helix rotation and width
+          const rotX = Math.cos(angleOffset + helix.rotation) * helix.width/2 * formationT;
+          const rotY = Math.sin(angleOffset + helix.rotation) * helix.width/2 * formationT;
+          
+          // Final position with formation animation
+          const targetX = helix.centerX + rotX;
+          const targetY = helix.centerY + rotY + verticalOffset * formationT;
+          
+          // Angle for the rod - tangent to the helix curve
+          const tangentAngle = angleOffset + helix.rotation + Math.PI/2;
+          
+          // Update the rod with easing
+          setRods(prev => {
+            const newRods = [...prev];
+            const rod = newRods[rodIndex];
+            
+            newRods[rodIndex] = {
+              ...rod,
+              x: targetX,
+              y: targetY,
+              angle: tangentAngle,
+              // Scale from 0 to 1 during formation
+              scale: helix.formationProgress,
+              // Add subtle blur based on movement speed
+              blur: helix.decaying ? rod.blur : Math.min(1, Math.sqrt(helix.vx*helix.vx + helix.vy*helix.vy) * 3),
+              // Maintain opacity based on decay state
+              opacity: helix.decaying 
+                ? rod.opacity
+                : 0.3 + 0.55 * helix.formationProgress
+            };
+            return newRods;
+          });
+        }
+      });
+      
+      // Position base pair rods
+      helix.basepairRods.forEach((rodId, index) => {
+        const rodIndex = rods.findIndex(r => r.id === rodId);
+        if (rodIndex !== -1) {
+          // Base pairs connect the two backbones
+          // Smooth formation animation - appear slightly after backbones
+          const formationT = Math.max(0, Math.min(1, (helix.formationProgress - 0.2) * 1.25));
+          
+          // Calculate positions along the helix
+          const turnIndex = Math.floor(index / (basePairsPerTurn / 2));
+          const pairProgress = (index % (basePairsPerTurn / 2)) / (basePairsPerTurn / 2);
+          
+          // Vertical position
+          const verticalProgress = (turnIndex + pairProgress) / helix.turns;
+          const verticalOffset = -helix.height/2 + verticalProgress * helix.height;
+          
+          // Angle around the helix
+          const angleOffset = pairProgress * Math.PI + helix.rotation;
+          
+          // Position at center of helix
+          const centerX = helix.centerX;
+          const centerY = helix.centerY + verticalOffset * formationT;
+          
+          // Angle for base pair - perpendicular to backbone tangent
+          const basePairAngle = angleOffset;
           
           // Update the rod
           setRods(prev => {
             const newRods = [...prev];
+            const rod = newRods[rodIndex];
+            
             newRods[rodIndex] = {
               ...rod,
-              x: newX,
-              y: newY,
-              angle: tangentAngle,
-              // Decay effect - gradually reduce opacity if decaying
+              x: centerX,
+              y: centerY,
+              angle: basePairAngle,
+              // Scale from 0 to 1 during formation
+              scale: formationT,
+              // Add subtle blur based on movement
+              blur: helix.decaying ? rod.blur : Math.min(1, Math.sqrt(helix.vx*helix.vx + helix.vy*helix.vy) * 2),
+              // Adjust opacity
               opacity: helix.decaying 
-                ? Math.max(0.3, 1 - (helix.age - 6) / 4) 
-                : rod.opacity
+                ? rod.opacity 
+                : 0.35 + 0.5 * formationT
             };
             return newRods;
           });
@@ -386,6 +560,74 @@ const AnimatedLandingPage = () => {
     if (helicesChanged) {
       setHelices(updatedHelices);
     }
+  };
+  
+  // Generate ambient particles around helices
+  const generateAmbientParticle = (helix: DNAHelix) => {
+    // Only generate particles for formed helices
+    if (helix.formationProgress < 0.5) return;
+    
+    // Random position near the helix
+    const angle = Math.random() * Math.PI * 2;
+    const distance = helix.width/2 * (1 + Math.random());
+    const x = helix.centerX + Math.cos(angle) * distance;
+    const y = helix.centerY + Math.sin(angle) * distance + (Math.random() - 0.5) * helix.height;
+    
+    // Particle properties
+    const newParticle: Particle = {
+      id: `particle-${Date.now()}-${Math.random()}`,
+      x,
+      y,
+      vx: (Math.random() - 0.5) * 0.2,
+      vy: (Math.random() - 0.5) * 0.2,
+      size: 1 + Math.random() * 2,
+      opacity: 0.2 + Math.random() * 0.2,
+      lifespan: 2 + Math.random() * 2, // 2-4 seconds
+      age: 0
+    };
+    
+    // Add to particles state
+    setParticles(prev => [...prev, newParticle]);
+  };
+  
+  // Update particles
+  const updateParticles = (deltaTime: number) => {
+    setParticles(prevParticles => {
+      return prevParticles
+        .map(particle => {
+          // Update age
+          const newAge = particle.age + deltaTime / 1000;
+          
+          // Remove if past lifespan
+          if (newAge >= particle.lifespan) {
+            return null;
+          }
+          
+          // Calculate lifetime progress
+          const progress = newAge / particle.lifespan;
+          
+          // Fade in then out
+          let newOpacity = particle.opacity;
+          if (progress < 0.2) {
+            newOpacity = particle.opacity * (progress / 0.2);
+          } else if (progress > 0.8) {
+            newOpacity = particle.opacity * (1 - (progress - 0.8) / 0.2);
+          }
+          
+          // Update position
+          const newX = particle.x + particle.vx * (deltaTime / 16);
+          const newY = particle.y + particle.vy * (deltaTime / 16);
+          
+          return {
+            ...particle,
+            x: newX,
+            y: newY,
+            opacity: newOpacity,
+            age: newAge
+          };
+        })
+        .filter(Boolean) as Particle[]; // Filter out removed particles
+    });
   };
   
   // Cycle through phrases
@@ -399,24 +641,44 @@ const AnimatedLandingPage = () => {
 
   return (
     <div className="w-full min-h-screen bg-black relative overflow-hidden flex flex-col items-center justify-center">
-      {/* Canvas for rods and DNA */}
+      {/* Canvas for rods, DNA and particles */}
       <div 
         ref={canvasRef} 
         className="absolute inset-0 overflow-hidden"
       >
+        {/* Ambient particles */}
+        {particles.map(particle => (
+          <motion.div
+            key={particle.id}
+            style={{
+              position: 'absolute',
+              width: `${particle.size}px`,
+              height: `${particle.size}px`,
+              borderRadius: '50%',
+              backgroundColor: theme === 'dark' 
+                ? `rgba(255, 255, 255, ${particle.opacity})` 
+                : `rgba(0, 0, 0, ${particle.opacity})`,
+              left: particle.x - particle.size/2,
+              top: particle.y - particle.size/2,
+              filter: 'blur(1px)'
+            }}
+          />
+        ))}
+        
+        {/* Rods forming DNA structure */}
         {rods.map(rod => (
           <motion.div
             key={rod.id}
-            className="absolute"
+            className="absolute pointer-events-none"
             style={{
               position: 'absolute',
               left: 0,
               top: 0,
               width: '100%',
-              height: '100%',
-              pointerEvents: 'none'
+              height: '100%'
             }}
           >
+            {/* The rod element */}
             <motion.div
               style={{
                 position: 'absolute',
@@ -427,12 +689,22 @@ const AnimatedLandingPage = () => {
                 transformOrigin: 'center',
                 left: rod.x - rod.length/2,
                 top: rod.y - 1,
-                transform: `rotate(${rod.angle}rad)`,
-                borderRadius: '1px'
+                transform: `rotate(${rod.angle}rad) scale(${rod.scale || 1})`,
+                borderRadius: '1px',
+                filter: rod.blur ? `blur(${rod.blur}px)` : undefined,
+                boxShadow: rod.helixStrand === 'basepair' 
+                  ? '0 0 3px rgba(255, 255, 255, 0.3)' 
+                  : undefined
+              }}
+              transition={{
+                type: 'spring',
+                damping: 20,
+                stiffness: 100
               }}
             />
+            
             {/* Connector nodes at ends - only for rods in a helix */}
-            {rod.inHelix && (
+            {rod.inHelix && rod.helixStrand === 'backbone' && (
               <>
                 <motion.div
                   style={{
@@ -443,7 +715,10 @@ const AnimatedLandingPage = () => {
                     backgroundColor: rod.color,
                     left: rod.x + Math.cos(rod.angle) * (rod.length/2) - 2,
                     top: rod.y + Math.sin(rod.angle) * (rod.length/2) - 2,
-                    opacity: rod.opacity
+                    opacity: rod.opacity,
+                    filter: rod.blur ? `blur(${rod.blur}px)` : undefined,
+                    transform: `scale(${rod.scale || 1})`,
+                    boxShadow: '0 0 2px rgba(255, 255, 255, 0.2)'
                   }}
                 />
                 <motion.div
@@ -455,12 +730,74 @@ const AnimatedLandingPage = () => {
                     backgroundColor: rod.color,
                     left: rod.x - Math.cos(rod.angle) * (rod.length/2) - 2,
                     top: rod.y - Math.sin(rod.angle) * (rod.length/2) - 2,
-                    opacity: rod.opacity
+                    opacity: rod.opacity,
+                    filter: rod.blur ? `blur(${rod.blur}px)` : undefined,
+                    transform: `scale(${rod.scale || 1})`,
+                    boxShadow: '0 0 2px rgba(255, 255, 255, 0.2)'
+                  }}
+                />
+              </>
+            )}
+            
+            {/* Nucleotide base pair connections - more detailed */}
+            {rod.inHelix && rod.helixStrand === 'basepair' && (
+              <>
+                <motion.div
+                  style={{
+                    position: 'absolute',
+                    width: '5px',
+                    height: '5px',
+                    borderRadius: '50%',
+                    backgroundColor: rod.color,
+                    left: rod.x + Math.cos(rod.angle) * (rod.length/2) - 2.5,
+                    top: rod.y + Math.sin(rod.angle) * (rod.length/2) - 2.5,
+                    opacity: rod.opacity,
+                    filter: rod.blur ? `blur(${rod.blur}px)` : undefined,
+                    transform: `scale(${rod.scale || 1})`,
+                    boxShadow: '0 0 3px rgba(255, 255, 255, 0.25)'
+                  }}
+                />
+                <motion.div
+                  style={{
+                    position: 'absolute',
+                    width: '5px',
+                    height: '5px',
+                    borderRadius: '50%',
+                    backgroundColor: rod.color,
+                    left: rod.x - Math.cos(rod.angle) * (rod.length/2) - 2.5,
+                    top: rod.y - Math.sin(rod.angle) * (rod.length/2) - 2.5,
+                    opacity: rod.opacity,
+                    filter: rod.blur ? `blur(${rod.blur}px)` : undefined,
+                    transform: `scale(${rod.scale || 1})`,
+                    boxShadow: '0 0 3px rgba(255, 255, 255, 0.25)'
                   }}
                 />
               </>
             )}
           </motion.div>
+        ))}
+      </div>
+      
+      {/* Ambient lighting effects */}
+      <div className="absolute inset-0 pointer-events-none">
+        {Object.values(helices).map(helix => (
+          <motion.div 
+            key={helix.id}
+            style={{
+              position: 'absolute',
+              left: helix.centerX - 50,
+              top: helix.centerY - 50,
+              width: 100,
+              height: 100,
+              borderRadius: '50%',
+              background: helix.decaying 
+                ? `radial-gradient(circle, rgba(220, 20, 60, ${0.15 * (1 - helix.decayProgress)}) 0%, transparent 70%)`
+                : `radial-gradient(circle, rgba(255, 255, 255, ${0.1 * helix.formationProgress}) 0%, transparent 70%)`,
+              opacity: helix.decaying ? 1 - helix.decayProgress : helix.formationProgress,
+              transform: `scale(${1 + helix.formationProgress})`,
+              transition: 'transform 0.5s cubic-bezier(0.25, 0.1, 0.25, 1)'
+            }}
+          />
         ))}
       </div>
       
@@ -483,7 +820,7 @@ const AnimatedLandingPage = () => {
       {/* Animated "Prompt or Die" Text in Bottom Right */}
       <div className="absolute bottom-8 right-8 z-10">
         <motion.div 
-          className="text-[#8B0000] font-bold text-4xl md:text-6xl lg:text-7xl"
+          className="text-[#DC143C] font-bold text-4xl md:text-6xl lg:text-7xl"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 1 }}
@@ -491,9 +828,9 @@ const AnimatedLandingPage = () => {
           <motion.span
             animate={{
               textShadow: [
-                '0 0 5px rgba(139,0,0,0.3)',
-                '0 0 15px rgba(139,0,0,0.5)',
-                '0 0 5px rgba(139,0,0,0.3)'
+                '0 0 5px rgba(220,20,60,0.3)',
+                '0 0 15px rgba(220,20,60,0.5)',
+                '0 0 5px rgba(220,20,60,0.3)'
               ],
             }}
             transition={{
@@ -501,7 +838,7 @@ const AnimatedLandingPage = () => {
               repeat: Infinity,
               repeatType: 'reverse'
             }}
-            className="drop-shadow-[0_0_8px_rgba(139,0,0,0.8)] filter"
+            className="drop-shadow-[0_0_8px_rgba(220,20,60,0.8)] filter"
           >
             PROMPT<span className="text-white">OR</span>DIE
           </motion.span>
@@ -509,7 +846,7 @@ const AnimatedLandingPage = () => {
       </div>
       
       {/* Ghost layer for extra depth */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(139,0,0,0.1),transparent_70%)] pointer-events-none"></div>
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(220,20,60,0.1),transparent_70%)] pointer-events-none"></div>
     </div>
   );
 };
