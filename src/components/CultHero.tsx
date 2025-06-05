@@ -160,7 +160,7 @@ const CultHero = () => {
       }`}>
         {/* Using the custom cult logo from the second reference image */}
         <img 
-          src="/ChatGPT Image Jun 4, 2025, 12_48_32 PM.png" 
+          src="/prod.png" 
           alt="Prompt or Die Emblem"
           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-full w-full object-contain z-10"
         />
@@ -221,19 +221,6 @@ const CultHero = () => {
               </span>
             </div>
           </h1>
-          
-          {/* Banner below title inspired by the first reference image */}
-          <div className={`relative max-w-xl mx-auto transition-all duration-1000 delay-300 ${
-            revealText ? 'opacity-100' : 'opacity-0'
-          }`}>
-            <div className="relative w-full max-w-[400px] mx-auto">
-              <img 
-                src="/ChatGPT Image Jun 4, 2025, 12_26_16 PM.png" 
-                alt="Anti Cult Society" 
-                className="w-full h-auto object-contain"
-              />
-            </div>
-          </div>
           
           {/* Enigmatic subtitle with text reveal animation */}
           <p className={`text-xl text-muted-foreground max-w-xl mx-auto transition-all duration-1000 delay-300 font-mono ${
