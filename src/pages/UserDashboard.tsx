@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from "@/hooks/use-auth";
@@ -55,7 +56,7 @@ const UserDashboard = () => {
     try {
       const { data: projectsData, error: projectsError } = await supabase
         .from('projects')
-        .select('*')
+        .select('id, name, created_at, last_modified, user_id')
         .eq('user_id', user?.id)
         .order('created_at', { ascending: false });
         
