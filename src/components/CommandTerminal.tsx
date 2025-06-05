@@ -15,6 +15,13 @@ interface CommandTerminalProps {
   onOpenChange: (open: boolean) => void;
 }
 
+interface TokenData {
+  price: number;
+  marketCap: number;
+  volume24h: number;
+  change24h: number;
+}
+
 const CommandTerminal: React.FC<CommandTerminalProps> = ({ 
   isOpen, 
   onOpenChange 
@@ -33,6 +40,14 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
     { text: "" }
   ]);
   
+  // Token data state
+  const [tokenData, setTokenData] = useState<TokenData>({
+    price: 2.47,
+    marketCap: 24500000,
+    volume24h: 1230000,
+    change24h: 5.8
+  });
+  
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
@@ -45,6 +60,27 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
   const [authHandle, setAuthHandle] = useState('');
   const [authStep, setAuthStep] = useState<'none' | 'email' | 'password' | 'handle'>('none');
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  
+  // Simulate token data updates
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    const interval = setInterval(() => {
+      // Simulate live price movements by randomly adjusting values
+      const priceChange = (Math.random() - 0.5) * 0.1; // Small random change
+      const volumeChange = Math.random() * 50000;
+      const newChange = tokenData.change24h + (Math.random() - 0.5) * 0.5;
+      
+      setTokenData({
+        price: Math.max(0.01, +(tokenData.price + priceChange).toFixed(2)),
+        marketCap: Math.max(1000000, Math.floor(tokenData.marketCap + volumeChange * 10)),
+        volume24h: Math.max(100000, Math.floor(tokenData.volume24h + volumeChange)),
+        change24h: +newChange.toFixed(1)
+      });
+    }, 5000);
+    
+    return () => clearInterval(interval);
+  }, [isOpen, tokenData]);
   
   useEffect(() => {
     // Auto-focus the input when the dialog opens
@@ -143,6 +179,9 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
       case 'status':
         showSystemStatus();
         break;
+      case 'token':
+        showTokenInfo();
+        break;
       case 'exit':
         onOpenChange(false);
         break;
@@ -155,6 +194,25 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
     
     // Reset input
     setInput('');
+  };
+
+  // Show token info as a command
+  const showTokenInfo = () => {
+    setOutputLines(prev => [
+      ...prev, 
+      { text: "=== $POD TOKEN INFO ===", isPrompt: true },
+      { text: `Price: $${tokenData.price.toFixed(2)} USD` },
+      { text: `Market Cap: $${(tokenData.marketCap / 1000000).toFixed(2)}M USD` },
+      { text: `24h Volume: $${(tokenData.volume24h / 1000000).toFixed(2)}M USD` },
+      { text: `24h Change: ${tokenData.change24h > 0 ? '+' : ''}${tokenData.change24h.toFixed(1)}%`, 
+        isSuccess: tokenData.change24h > 0, 
+        isError: tokenData.change24h < 0 
+      },
+      { text: `Chain: Solana` },
+      { text: `Contract: sokp...7j29` },
+      { text: "" },
+      { text: "Type 'help' to see more commands.", isWarning: true },
+    ]);
   };
 
   // Start an interactive auth flow
@@ -484,6 +542,7 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
       { text: `Server Status: ONLINE` },
       { text: `Prompt Engine: OPERATIONAL` },
       { text: `API Version: 1.0.3` },
+      { text: `Token Price: $${tokenData.price.toFixed(2)} (${tokenData.change24h >= 0 ? '+' : ''}${tokenData.change24h.toFixed(1)}%)` },
       { text: "" }
     ]);
   };
@@ -699,6 +758,7 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
       { text: "" },
       { text: "System:" },
       { text: "  status                    - Show system status" },
+      { text: "  token                     - Show $POD token info" },
       { text: "  help                      - Show this help message" },
       { text: "  clear                     - Clear terminal output" },
       { text: "  exit                      - Close terminal" },
@@ -768,7 +828,7 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
     const commands = [
       'help', 'clear', 'goto', 'cd', 'login', 'logout', 'register',
       'dashboard', 'gallery', 'docs', 'create', 'list', 'generate',
-      'export', 'whoami', 'exit', 'status'
+      'export', 'whoami', 'exit', 'status', 'token'
     ];
     
     const matches = commands.filter(cmd => cmd.startsWith(input));
@@ -783,11 +843,16 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
     }
   };
   
+  // Format numbers with commas for thousands
+  const formatNumber = (num: number): string => {
+    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  };
+  
   // Custom styling for terminal-like appearance
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent 
-        className="w-[95vw] max-w-[800px] h-[500px] p-0 bg-black border-primary/30 shadow-[0_0_30px_rgba(139,0,0,0.25)] rounded-lg"
+        className="w-[95vw] max-w-[800px] h-[500px] p-0 bg-black border-[#8B0000]/30 shadow-[0_0_30px_rgba(139,0,0,0.25)] rounded-lg"
         onInteractOutside={(e) => e.preventDefault()} // Prevent closing on outside click
       >
         <DialogHeader>
@@ -796,7 +861,7 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
         <div 
           className="terminal-window flex flex-col h-full w-full rounded-lg bg-black overflow-hidden font-mono"
         >
-          {/* Terminal header */}
+          {/* Terminal header with token info */}
           <div className="terminal-header flex items-center justify-between p-2 bg-gradient-to-r from-black to-[#8B0000]/20 border-b border-[#8B0000]/30">
             <div className="flex items-center gap-2">
               <div className="flex space-x-2">
@@ -809,7 +874,22 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
               </div>
               <span className="text-xs text-[#8B0000]/70 ml-2">prompt-terminal</span>
             </div>
-            <div className="text-xs text-[#8B0000]/70 mr-2">v1.0.0</div>
+            
+            {/* Token info display */}
+            <div className="flex items-center gap-4">
+              <div className="flex items-center">
+                <span className="text-xs text-[#8B0000] font-bold">$POD:</span>
+                <span className="text-xs ml-1">${tokenData.price.toFixed(2)}</span>
+                <span className={`text-xs ml-1 ${tokenData.change24h >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                  {tokenData.change24h >= 0 ? '+' : ''}{tokenData.change24h}%
+                </span>
+              </div>
+              <div className="text-xs">
+                <span className="text-[#8B0000]/70">MCap:</span>
+                <span className="ml-1">${(tokenData.marketCap / 1000000).toFixed(2)}M</span>
+              </div>
+              <div className="text-xs text-[#8B0000]/70">v1.0.0</div>
+            </div>
           </div>
           
           {/* Terminal output area */}
