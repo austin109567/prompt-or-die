@@ -13,9 +13,9 @@ import {
 } from "lucide-react";
 import { useTheme } from "@/hooks/use-theme";
 import { useAuth } from "@/hooks/use-auth";
-import { signOut } from "@/lib/supabase";
+import { signOut } from '@/lib/supabase';
 import { useToast } from "@/hooks/use-toast";
-import { useCommandTerminal } from "@/hooks/use-command-terminal";
+import { useCommandTerminal } from '@/hooks/use-command-terminal';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -68,7 +68,7 @@ const Header = () => {
           <Link to="/" className="flex items-center gap-2">
             <div className="h-9 w-9 rounded-md overflow-hidden">
               <img 
-                src="/prod.png" 
+                src="/image.png" 
                 alt="Prompt or Die" 
                 className="h-full w-full object-contain"
               />
@@ -180,7 +180,7 @@ const Header = () => {
               <SheetContent>
                 <SheetHeader className="mb-4">
                   <SheetTitle className="flex items-center gap-2">
-                    <img src="/prod.png" alt="Prompt or Die" className="h-6 w-6" />
+                    <img src="/image.png" alt="Prompt or Die" className="h-6 w-6" />
                     Prompt or Die
                   </SheetTitle>
                 </SheetHeader>

@@ -114,11 +114,11 @@ const CultHero = () => {
   return (
     <div ref={containerRef} className="relative min-h-[90vh] flex items-center justify-center overflow-hidden bg-black">
       {/* Dark mystical background */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(75,0,130,0.15),transparent_70%)]" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,100,180,0.07),transparent_70%)]" style={{top: '60%'}} />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(139,0,0,0.15),transparent_70%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(100,0,0,0.07),transparent_70%)]" style={{top: '60%'}} />
       
       {/* Grid pattern */}
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(0,255,128,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(0,255,128,0.03)_1px,transparent_1px)] bg-[size:40px_40px] opacity-20" />
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:40px_40px] opacity-20" />
       
       {/* Lightning effects */}
       <div className="absolute inset-0 pointer-events-none">
@@ -160,7 +160,7 @@ const CultHero = () => {
       }`}>
         {/* Using the custom cult logo from the second reference image */}
         <img 
-          src="/prod.png" 
+          src="/image.png" 
           alt="Prompt or Die Emblem"
           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-full w-full object-contain z-10"
         />
