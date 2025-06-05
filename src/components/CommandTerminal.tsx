@@ -20,7 +20,6 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
   onOpenChange 
 }) => {
   const [input, setInput] = useState('');
-  const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const [outputLines, setOutputLines] = useState<Array<{ text: string; isCommand?: boolean; isError?: boolean }>>([
