@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -170,7 +171,7 @@ const DomainSettings = () => {
                   </div>
                   <div className="flex items-center gap-2">
                     {domain.status === "active" && (
-                      <Button variant="outline\" size="sm\" className="h-8 gap-1">
+                      <Button variant="outline" size="sm" className="h-8 gap-1">
                         <ExternalLink className="h-3 w-3" />
                         Visit
                       </Button>

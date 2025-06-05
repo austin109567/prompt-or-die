@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Eye, EyeOff, Github, Loader2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
-import { signIn, signUp, signOut } from '@/lib/supabase';
+import { signIn, signUp, supabase } from '@/lib/supabase';
 import { useSearchParams } from 'react-router-dom';
 
 const Auth = () => {

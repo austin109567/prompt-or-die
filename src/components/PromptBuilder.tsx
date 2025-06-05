@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
 import { PromptBlockProps } from "./PromptBlock";
 import KeyboardShortcuts from "./KeyboardShortcuts";
 import BuilderPanel from "./BuilderPanel";
