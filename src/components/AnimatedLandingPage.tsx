@@ -33,6 +33,8 @@ interface Rod {
   scale?: number;
   thickness?: number;
   gradient?: boolean;
+  gradientStart?: string;
+  gradientEnd?: string;
   shadowColor?: string;
   shadowBlur?: number;
   shadowOpacity?: number;
@@ -43,6 +45,7 @@ interface Rod {
 
 interface DNAHelix {
   id: string;
+  strandIndex: number; // 0, 1, or 2 to identify which of the three strands
   rods: string[];
   backboneRods: string[];
   basepairRods: string[];
@@ -50,9 +53,9 @@ interface DNAHelix {
   centerY: number;
   vx: number;
   vy: number;
-  width: number; // 2nm in pixels
-  height: number; // Height per complete turn (3.4nm)
-  turns: number; // Number of complete turns
+  width: number; 
+  height: number; 
+  turns: number;
   rotation: number;
   vRotation: number;
   formationProgress: number; // 0 to 1
@@ -63,6 +66,23 @@ interface DNAHelix {
   perspective?: number;
   rotateX?: number;
   rotateY?: number;
+  state: 'forming' | 'stable' | 'unwinding' | 'rewinding' | 'decaying';
+  targetHelix?: string; // ID of helix to intertwine with
+  intertwineProgress?: number; // 0 to 1
+  unwindProgress?: number; // 0 to 1
+  rewindProgress?: number; // 0 to 1
+  colorScheme: DNAColorScheme;
+}
+
+interface DNAColorScheme {
+  backboneStart: string;
+  backboneEnd: string;
+  basepairStart: string;
+  basepairEnd: string;
+  decayStart: string;
+  decayEnd: string;
+  particleColor: string;
+  glowColor: string;
 }
 
 interface Particle {
@@ -79,16 +99,55 @@ interface Particle {
   blur?: number;
 }
 
+// Define three distinct color schemes for DNA strands
+const DNA_COLOR_SCHEMES: DNAColorScheme[] = [
+  // Scheme 1: Blue-ish
+  {
+    backboneStart: 'rgba(180, 210, 255, 0.85)',
+    backboneEnd: 'rgba(140, 180, 240, 0.85)',
+    basepairStart: 'rgba(210, 230, 255, 0.85)',
+    basepairEnd: 'rgba(170, 200, 255, 0.85)',
+    decayStart: 'rgba(220, 20, 60, 0.85)', // Crimson for all
+    decayEnd: 'rgba(180, 10, 40, 0.85)',
+    particleColor: 'rgba(180, 210, 255, 0.6)',
+    glowColor: 'rgba(140, 180, 240, 0.5)'
+  },
+  // Scheme 2: Green-ish
+  {
+    backboneStart: 'rgba(180, 255, 210, 0.85)',
+    backboneEnd: 'rgba(140, 240, 180, 0.85)',
+    basepairStart: 'rgba(210, 255, 230, 0.85)',
+    basepairEnd: 'rgba(170, 255, 200, 0.85)',
+    decayStart: 'rgba(220, 20, 60, 0.85)',
+    decayEnd: 'rgba(180, 10, 40, 0.85)',
+    particleColor: 'rgba(180, 255, 210, 0.6)',
+    glowColor: 'rgba(140, 240, 180, 0.5)'
+  },
+  // Scheme 3: Purple-ish
+  {
+    backboneStart: 'rgba(230, 180, 255, 0.85)',
+    backboneEnd: 'rgba(200, 140, 240, 0.85)',
+    basepairStart: 'rgba(240, 210, 255, 0.85)',
+    basepairEnd: 'rgba(220, 170, 255, 0.85)',
+    decayStart: 'rgba(220, 20, 60, 0.85)',
+    decayEnd: 'rgba(180, 10, 40, 0.85)',
+    particleColor: 'rgba(230, 180, 255, 0.6)',
+    glowColor: 'rgba(200, 140, 240, 0.5)'
+  }
+];
+
 const AnimatedLandingPage = () => {
   const { theme } = useTheme();
   const [currentPhrase, setCurrentPhrase] = useState(0);
   const [rods, setRods] = useState<Rod[]>([]);
   const [helices, setHelices] = useState<{[key: string]: DNAHelix}>({});
   const [particles, setParticles] = useState<Particle[]>([]);
+  const [activeStrands, setActiveStrands] = useState<number[]>([0, 0, 0]); // Tracks active helices for each strand type
   const canvasRef = useRef<HTMLDivElement>(null);
   const animationFrameRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  const transformationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Set up canvas dimensions
   useEffect(() => {
@@ -115,12 +174,11 @@ const AnimatedLandingPage = () => {
   useEffect(() => {
     if (dimensions.width === 0 || dimensions.height === 0) return;
 
-    // Generate random rods with more subtle, fluid appearance
-    const initialRods: Rod[] = Array.from({ length: 120 }).map((_, i) => {
+    // Generate random rods with fluid appearance
+    const initialRods: Rod[] = Array.from({ length: 150 }).map((_, i) => {
       const x = Math.random() * dimensions.width;
       const y = Math.random() * dimensions.height;
       const angle = Math.random() * Math.PI * 2;
-      // More consistent rod lengths based on DNA proportions with increased size
       const length = 18 + Math.random() * 7; // Increased by ~30%
       
       return {
@@ -148,6 +206,35 @@ const AnimatedLandingPage = () => {
 
     setRods(initialRods);
   }, [dimensions, theme]);
+
+  // Schedule DNA transformations
+  useEffect(() => {
+    // Start creating DNA strands with slight delays between them
+    const initialCreation = setTimeout(() => formDNAHelix(0), 2000);
+    const secondCreation = setTimeout(() => formDNAHelix(1), 4000);
+    const thirdCreation = setTimeout(() => formDNAHelix(2), 6000);
+    
+    // Schedule regular transformations
+    const scheduleNextTransformation = () => {
+      const nextTime = 8000 + Math.random() * 4000; // 8-12 seconds
+      transformationTimerRef.current = setTimeout(() => {
+        transformRandomHelix();
+        scheduleNextTransformation();
+      }, nextTime);
+    };
+    
+    // Start the transformation cycle after all helices are created
+    setTimeout(scheduleNextTransformation, 10000);
+    
+    return () => {
+      clearTimeout(initialCreation);
+      clearTimeout(secondCreation);
+      clearTimeout(thirdCreation);
+      if (transformationTimerRef.current) {
+        clearTimeout(transformationTimerRef.current);
+      }
+    };
+  }, []);
 
   // Animation loop
   useEffect(() => {
@@ -223,23 +310,23 @@ const AnimatedLandingPage = () => {
         });
       });
 
-      // Try to form DNA helix at a controlled rate
-      if (Math.random() < 0.004) { // Reduced frequency for more deliberate formation
-        formDNAHelix();
-      }
+      // Automatically create DNA helices if needed (one of each type)
+      Object.values(DNA_COLOR_SCHEMES).forEach((_, index) => {
+        const activeCount = Object.values(helices).filter(h => 
+          h.strandIndex === index && 
+          (h.state === 'forming' || h.state === 'stable' || h.state === 'unwinding' || h.state === 'rewinding')
+        ).length;
+        
+        if (activeCount === 0 && Math.random() < 0.002) {
+          formDNAHelix(index);
+        }
+      });
       
       // Update existing helices
       updateHelices(deltaTime);
       
       // Update particles
       updateParticles(deltaTime);
-      
-      // Generate ambient particles around helices
-      Object.values(helices).forEach(helix => {
-        if (Math.random() < 0.15 * dt) {
-          generateAmbientParticle(helix);
-        }
-      });
 
       animationFrameRef.current = requestAnimationFrame(animate);
     };
@@ -253,12 +340,11 @@ const AnimatedLandingPage = () => {
     };
   }, [rods, dimensions, helices]);
   
-  // Function to form DNA helix from rods
-  const formDNAHelix = () => {
+  // Function to form DNA helix with specific strand type
+  const formDNAHelix = (strandIndex: number = Math.floor(Math.random() * 3)) => {
     // Find free rods
     const freeRods = rods.filter(rod => !rod.inHelix);
     
-    // We need enough rods for a scientifically accurate DNA model
     // Each turn needs 10 base pairs (20 rods) plus 20 backbone rods
     const basePairsPerTurn = 10;
     const turns = 1 + Math.floor(Math.random() * 2); // 1-2 turns
@@ -287,7 +373,7 @@ const AnimatedLandingPage = () => {
       .map(rod => rod.id);
     
     // Create a new DNA helix with 3D perspective
-    const helixId = `helix-${Date.now()}-${Math.random()}`;
+    const helixId = `helix-${strandIndex}-${Date.now()}-${Math.random()}`;
     const allRodIds = [...backboneRodIds, ...basepairRodIds];
     
     // Add 3D rotation values for the entire helix
@@ -295,8 +381,12 @@ const AnimatedLandingPage = () => {
     const rotateX = (Math.random() - 0.5) * 20;
     const rotateY = (Math.random() - 0.5) * 20;
     
+    // Get the color scheme for this strand
+    const colorScheme = DNA_COLOR_SCHEMES[strandIndex];
+    
     const newHelix: DNAHelix = {
       id: helixId,
+      strandIndex,
       rods: allRodIds,
       backboneRods: backboneRodIds,
       basepairRods: basepairRodIds,
@@ -316,7 +406,9 @@ const AnimatedLandingPage = () => {
       particles: [],
       perspective,
       rotateX,
-      rotateY
+      rotateY,
+      state: 'forming',
+      colorScheme
     };
     
     // Update the rods to be part of the helix
@@ -325,10 +417,10 @@ const AnimatedLandingPage = () => {
         if (allRodIds.includes(rod.id)) {
           const isBackbone = backboneRodIds.includes(rod.id);
           
-          // Enhanced colors with more depth
+          // Use colors from the color scheme
           const baseColor = isBackbone 
-            ? 'rgba(230, 230, 240, 0.85)' 
-            : 'rgba(210, 210, 255, 0.85)';
+            ? colorScheme.backboneStart
+            : colorScheme.basepairStart;
             
           return {
             ...rod,
@@ -340,7 +432,9 @@ const AnimatedLandingPage = () => {
             scale: 0,
             thickness: isBackbone ? 3.2 : 2.8, // Increased thickness by ~30%
             gradient: true,
-            shadowColor: isBackbone ? 'rgba(200, 200, 255, 0.6)' : 'rgba(180, 180, 255, 0.7)',
+            shadowColor: isBackbone 
+              ? colorScheme.glowColor
+              : colorScheme.glowColor,
             shadowBlur: 3,
             shadowOpacity: 0.7,
             perspective
@@ -355,6 +449,161 @@ const AnimatedLandingPage = () => {
       ...prevHelices,
       [helixId]: newHelix
     }));
+
+    // Update active strands count
+    setActiveStrands(prev => {
+      const newCounts = [...prev];
+      newCounts[strandIndex]++;
+      return newCounts;
+    });
+  };
+  
+  // Transform a random helix (unwind, rewind, or decay)
+  const transformRandomHelix = () => {
+    const stableHelices = Object.values(helices).filter(h => h.state === 'stable');
+    if (stableHelices.length === 0) return;
+    
+    const randomHelix = stableHelices[Math.floor(Math.random() * stableHelices.length)];
+    
+    // Choose a random transformation
+    const transformType = Math.random();
+    
+    if (transformType < 0.4) { // 40% chance to unwind
+      setHelices(prev => ({
+        ...prev,
+        [randomHelix.id]: {
+          ...randomHelix,
+          state: 'unwinding',
+          unwindProgress: 0
+        }
+      }));
+      
+      // Generate special transformation particles
+      generateTransformationParticles(randomHelix, 'unwinding');
+    } 
+    else if (transformType < 0.8) { // 40% chance to decay
+      setHelices(prev => ({
+        ...prev,
+        [randomHelix.id]: {
+          ...randomHelix,
+          state: 'decaying',
+          decayProgress: 0,
+          decaying: true
+        }
+      }));
+      
+      // Generate special transformation particles
+      generateTransformationParticles(randomHelix, 'decaying');
+    }
+    else { // 20% chance to intertwine with another helix
+      const otherHelices = stableHelices.filter(h => h.id !== randomHelix.id);
+      
+      if (otherHelices.length > 0) {
+        const targetHelix = otherHelices[Math.floor(Math.random() * otherHelices.length)];
+        
+        setHelices(prev => ({
+          ...prev,
+          [randomHelix.id]: {
+            ...randomHelix,
+            state: 'rewinding',
+            rewindProgress: 0,
+            targetHelix: targetHelix.id
+          }
+        }));
+        
+        // Generate special transformation particles
+        generateTransformationParticles(randomHelix, 'rewinding', targetHelix);
+      }
+    }
+  };
+  
+  // Generate special particles for transformations
+  const generateTransformationParticles = (helix: DNAHelix, transformType: string, targetHelix?: DNAHelix) => {
+    const particleCount = transformType === 'decaying' ? 15 : 10;
+    const newParticles: Particle[] = [];
+    
+    for (let i = 0; i < particleCount; i++) {
+      // Position particles along the helix
+      const angleOffset = Math.random() * Math.PI * 2;
+      const verticalOffset = (Math.random() - 0.5) * helix.height;
+      const radiusMultiplier = transformType === 'unwinding' ? 1.2 : 1;
+      
+      const x = helix.centerX + Math.cos(angleOffset) * (helix.width/2) * radiusMultiplier;
+      const y = helix.centerY + Math.sin(angleOffset) * (helix.width/2) * radiusMultiplier + verticalOffset;
+      
+      // Particle color based on transformation and helix color scheme
+      let particleColor;
+      
+      if (transformType === 'decaying') {
+        particleColor = helix.colorScheme.decayStart.replace('0.85', '0.7');
+      } else if (transformType === 'unwinding') {
+        particleColor = helix.colorScheme.particleColor;
+      } else {
+        // For rewinding, use a mix of both helix colors if target exists
+        if (targetHelix) {
+          const mixRatio = Math.random();
+          const color1 = helix.colorScheme.particleColor.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/)!;
+          const color2 = targetHelix.colorScheme.particleColor.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/)!;
+          
+          const r = Math.round(parseInt(color1[1]) * (1-mixRatio) + parseInt(color2[1]) * mixRatio);
+          const g = Math.round(parseInt(color1[2]) * (1-mixRatio) + parseInt(color2[2]) * mixRatio);
+          const b = Math.round(parseInt(color1[3]) * (1-mixRatio) + parseInt(color2[3]) * mixRatio);
+          const a = parseFloat(color1[4]) * (1-mixRatio) + parseFloat(color2[4]) * mixRatio;
+          
+          particleColor = `rgba(${r}, ${g}, ${b}, ${a})`;
+        } else {
+          particleColor = helix.colorScheme.particleColor;
+        }
+      }
+      
+      // Add directional velocity based on transformation type
+      let vx, vy;
+      
+      if (transformType === 'decaying') {
+        // Explosion effect for decay
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 0.3 + Math.random() * 0.5;
+        vx = Math.cos(angle) * speed;
+        vy = Math.sin(angle) * speed;
+      } else if (transformType === 'unwinding') {
+        // Unwinding - particles move outward perpendicular to helix axis
+        const angle = angleOffset;
+        const speed = 0.2 + Math.random() * 0.3;
+        vx = Math.cos(angle) * speed;
+        vy = Math.sin(angle) * speed;
+      } else { // rewinding
+        // Rewinding - particles move toward target if exists
+        if (targetHelix) {
+          const dx = targetHelix.centerX - x;
+          const dy = targetHelix.centerY - y;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          const speed = 0.2 + Math.random() * 0.3;
+          vx = (dx / dist) * speed;
+          vy = (dy / dist) * speed;
+        } else {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = 0.1 + Math.random() * 0.2;
+          vx = Math.cos(angle) * speed;
+          vy = Math.sin(angle) * speed;
+        }
+      }
+      
+      newParticles.push({
+        id: `trans-${Date.now()}-${Math.random()}`,
+        x,
+        y,
+        vx,
+        vy,
+        size: 2 + Math.random() * 3,
+        opacity: 0.5 + Math.random() * 0.4,
+        lifespan: 1.5 + Math.random() * 2,
+        age: 0,
+        color: particleColor,
+        blur: 2 + Math.random() * 1.5
+      });
+    }
+    
+    setParticles(prev => [...prev, ...newParticles]);
   };
   
   // Update existing DNA helices
@@ -368,126 +617,219 @@ const AnimatedLandingPage = () => {
       // Update age
       helix.age += deltaTime / 1000; // Convert to seconds
       
-      // Update formation progress (over 5-7 seconds)
-      const formationDuration = 5 + Math.random() * 2;
-      if (helix.formationProgress < 1) {
-        // Use cubic-bezier for organic formation
-        const t = Math.min(1, helix.age / formationDuration);
-        const cubic = (t: number) => {
-          // Cubic bezier approximation for organic movement
-          return t < 0.5 
-            ? 4 * t * t * t 
-            : 1 - Math.pow(-2 * t + 2, 3) / 2;
-        };
-        
-        helix.formationProgress = cubic(t);
-        helicesChanged = true;
-        
-        // Gradually apply 3D rotation during formation
-        helix.rotateX = (helix.rotateX || 0) * t;
-        helix.rotateY = (helix.rotateY || 0) * t;
-      }
-      
-      // Check if helix should start decaying (after 6 seconds)
-      if (!helix.decaying && helix.age > 6) {
-        helix.decaying = true;
-        helicesChanged = true;
-      }
-      
-      // Update decay progress (over 3-4 seconds)
-      const decayDuration = 3 + Math.random();
-      if (helix.decaying) {
-        helix.decayProgress = Math.min(1, (helix.age - 6) / decayDuration);
-        helicesChanged = true;
-        
-        // Color transition to crimson
-        const decayT = helix.decayProgress;
-        setRods(prevRods => {
-          return prevRods.map(rod => {
-            if (rod.helixId === helixId) {
-              const isBasepair = rod.helixStrand === 'basepair';
-              
-              // Create a gradient transition to crimson
-              // Start RGB values
-              const startR = isBasepair ? 210 : 230;
-              const startG = isBasepair ? 210 : 230;
-              const startB = isBasepair ? 255 : 240;
-              
-              // End RGB values (crimson: #DC143C -> 220, 20, 60)
-              const endR = 220;
-              const endG = 20;
-              const endB = 60;
-              
-              // Interpolate RGB values
-              const r = Math.round(startR + (endR - startR) * decayT);
-              const g = Math.round(startG + (endG - startG) * decayT);
-              const b = Math.round(startB + (endB - startB) * decayT);
-              
-              // Add decay effects for enhanced visual interest
-              const baseColor = `rgba(${r}, ${g}, ${b}, ${0.85 - decayT * 0.25})`;
-              
-              return {
-                ...rod,
-                color: baseColor,
-                shadowColor: `rgba(${r}, ${g/2}, ${b/2}, ${0.7 - decayT * 0.3})`,
-                shadowBlur: 2 + decayT * 3,
-                blur: decayT * 2.5, // Add blur during decay
-                scale: 1 - decayT * 0.2 // Slight scale reduction during decay
-              };
+      // Handle different helix states
+      switch(helix.state) {
+        case 'forming':
+          // Update formation progress (over 4-6 seconds)
+          const formationDuration = 4 + Math.random() * 2;
+          if (helix.formationProgress < 1) {
+            // Use cubic-bezier for organic formation
+            const t = Math.min(1, helix.age / formationDuration);
+            const cubic = (t: number) => {
+              return t < 0.5 
+                ? 4 * t * t * t 
+                : 1 - Math.pow(-2 * t + 2, 3) / 2;
+            };
+            
+            helix.formationProgress = cubic(t);
+            helicesChanged = true;
+            
+            // Gradually apply 3D rotation during formation
+            helix.rotateX = (helix.rotateX || 0) * t;
+            helix.rotateY = (helix.rotateY || 0) * t;
+            
+            // Generate ambient particles during formation
+            if (Math.random() < 0.2) {
+              generateAmbientParticle(helix);
             }
-            return rod;
-          });
-        });
-        
-        // Enhance particle generation during decay
-        if (Math.random() < 0.3 * decayT) {
-          generateDecayParticle(helix);
-        }
-      }
-      
-      // Remove helix if fully decayed
-      if (helix.decaying && helix.decayProgress >= 1) {
-        // Release rods from the helix with dispersion
-        setRods(prevRods => {
-          return prevRods.map(rod => {
-            if (rod.helixId === helixId) {
-              // Calculate dispersion direction (away from helix center)
-              const dx = rod.x - helix.centerX;
-              const dy = rod.y - helix.centerY;
-              const dist = Math.sqrt(dx * dx + dy * dy);
-              const normalizedDx = dist > 0 ? dx / dist : 0;
-              const normalizedDy = dist > 0 ? dy / dist : 0;
-              
-              // Randomize the 3D rotations for dispersion
-              const newRotateX = (Math.random() - 0.5) * 45; 
-              const newRotateY = (Math.random() - 0.5) * 45;
-              
-              return {
-                ...rod,
-                inHelix: false,
-                helixId: undefined,
-                helixPosition: undefined,
-                helixStrand: undefined,
-                // Velocity away from center with randomness
-                vx: normalizedDx * (0.5 + Math.random() * 0.5),
-                vy: normalizedDy * (0.5 + Math.random() * 0.5),
-                vAngle: (Math.random() - 0.5) * 0.04,
-                color: theme === 'dark' ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.7)',
-                opacity: 0.3 + Math.random() * 0.05,
-                blur: 0,
-                scale: 1,
-                rotateX: newRotateX,
-                rotateY: newRotateY
-              };
+          } else {
+            // Transition to stable state when fully formed
+            helix.state = 'stable';
+            helicesChanged = true;
+          }
+          break;
+          
+        case 'stable':
+          // Generate occasional ambient particles
+          if (Math.random() < 0.05) {
+            generateAmbientParticle(helix);
+          }
+          
+          // After some time in stable state, it can transform
+          // This is handled by the transformRandomHelix function
+          break;
+          
+        case 'unwinding':
+          // Update unwinding progress (over 3-4 seconds)
+          const unwindDuration = 3 + Math.random();
+          if (helix.unwindProgress === undefined) helix.unwindProgress = 0;
+          
+          if (helix.unwindProgress < 1) {
+            helix.unwindProgress += deltaTime / (unwindDuration * 1000);
+            helicesChanged = true;
+            
+            // Generate particles during unwinding
+            if (Math.random() < 0.15) {
+              generateTransformationParticles(helix, 'unwinding');
             }
-            return rod;
-          });
-        });
-        
-        // Delete the helix
-        delete updatedHelices[helixId];
-        helicesChanged = true;
-        return;
+          } else {
+            // Return to stable state when fully unwound, but with expanded width
+            helix.state = 'stable';
+            helix.width = helix.width * 1.8; // Expanded helix
+            helicesChanged = true;
+            
+            // Schedule rewinding after a delay
+            setTimeout(() => {
+              if (updatedHelices[helixId] && updatedHelices[helixId].state === 'stable') {
+                updatedHelices[helixId].state = 'rewinding';
+                updatedHelices[helixId].rewindProgress = 0;
+                setHelices({...updatedHelices});
+              }
+            }, 2000 + Math.random() * 1000);
+          }
+          break;
+          
+        case 'rewinding':
+          // Update rewinding progress (over 3-4 seconds)
+          const rewindDuration = 3 + Math.random();
+          if (helix.rewindProgress === undefined) helix.rewindProgress = 0;
+          
+          if (helix.rewindProgress < 1) {
+            helix.rewindProgress += deltaTime / (rewindDuration * 1000);
+            helicesChanged = true;
+            
+            // Width contracts back to normal during rewinding
+            helix.width = 26 + (helix.width - 26) * (1 - helix.rewindProgress);
+            
+            // Generate particles during rewinding
+            if (Math.random() < 0.15) {
+              generateTransformationParticles(helix, 'rewinding');
+            }
+          } else {
+            // Return to stable state when fully rewound
+            helix.state = 'stable';
+            helix.width = 26; // Normal helix width
+            helicesChanged = true;
+          }
+          break;
+          
+        case 'decaying':
+          // Update decay progress (over 3-4 seconds)
+          const decayDuration = 3 + Math.random();
+          if (helix.decayProgress < 1) {
+            helix.decayProgress += deltaTime / (decayDuration * 1000);
+            helicesChanged = true;
+            
+            // Color transition to crimson
+            const decayT = helix.decayProgress;
+            setRods(prevRods => {
+              return prevRods.map(rod => {
+                if (rod.helixId === helixId) {
+                  const isBasepair = rod.helixStrand === 'basepair';
+                  
+                  // Parse the start and end colors
+                  const startColorMatch = (isBasepair ? 
+                    helix.colorScheme.basepairStart : 
+                    helix.colorScheme.backboneStart).match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
+                  
+                  const endColorMatch = helix.colorScheme.decayStart.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
+                  
+                  if (!startColorMatch || !endColorMatch) return rod;
+                  
+                  // Start RGB values
+                  const startR = parseInt(startColorMatch[1]);
+                  const startG = parseInt(startColorMatch[2]);
+                  const startB = parseInt(startColorMatch[3]);
+                  const startA = parseFloat(startColorMatch[4]);
+                  
+                  // End RGB values (crimson)
+                  const endR = parseInt(endColorMatch[1]);
+                  const endG = parseInt(endColorMatch[2]);
+                  const endB = parseInt(endColorMatch[3]);
+                  const endA = parseFloat(endColorMatch[4]);
+                  
+                  // Interpolate RGB values
+                  const r = Math.round(startR + (endR - startR) * decayT);
+                  const g = Math.round(startG + (endG - startG) * decayT);
+                  const b = Math.round(startB + (endB - startB) * decayT);
+                  const a = startA + (endA - startA) * decayT;
+                  
+                  // Add decay effects
+                  const baseColor = `rgba(${r}, ${g}, ${b}, ${a - decayT * 0.25})`;
+                  const shadowColor = `rgba(${r}, ${g/2}, ${b/2}, ${0.7 - decayT * 0.3})`;
+                  
+                  return {
+                    ...rod,
+                    color: baseColor,
+                    gradientStart: baseColor,
+                    gradientEnd: `rgba(${r-30}, ${g-30}, ${b-30}, ${a - decayT * 0.25})`,
+                    shadowColor: shadowColor,
+                    shadowBlur: 2 + decayT * 3,
+                    blur: decayT * 2.5, // Add blur during decay
+                    scale: 1 - decayT * 0.2 // Slight scale reduction during decay
+                  };
+                }
+                return rod;
+              });
+            });
+            
+            // Enhance particle generation during decay
+            if (Math.random() < 0.3 * decayT) {
+              generateDecayParticle(helix);
+            }
+          } else {
+            // Remove helix if fully decayed
+            // Release rods from the helix with dispersion
+            setRods(prevRods => {
+              return prevRods.map(rod => {
+                if (rod.helixId === helixId) {
+                  // Calculate dispersion direction (away from helix center)
+                  const dx = rod.x - helix.centerX;
+                  const dy = rod.y - helix.centerY;
+                  const dist = Math.sqrt(dx * dx + dy * dy);
+                  const normalizedDx = dist > 0 ? dx / dist : 0;
+                  const normalizedDy = dist > 0 ? dy / dist : 0;
+                  
+                  // Randomize the 3D rotations for dispersion
+                  const newRotateX = (Math.random() - 0.5) * 45; 
+                  const newRotateY = (Math.random() - 0.5) * 45;
+                  
+                  return {
+                    ...rod,
+                    inHelix: false,
+                    helixId: undefined,
+                    helixPosition: undefined,
+                    helixStrand: undefined,
+                    // Velocity away from center with randomness
+                    vx: normalizedDx * (0.5 + Math.random() * 0.5),
+                    vy: normalizedDy * (0.5 + Math.random() * 0.5),
+                    vAngle: (Math.random() - 0.5) * 0.04,
+                    color: theme === 'dark' ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.7)',
+                    opacity: 0.3 + Math.random() * 0.05,
+                    blur: 0,
+                    scale: 1,
+                    rotateX: newRotateX,
+                    rotateY: newRotateY
+                  };
+                }
+                return rod;
+              });
+            });
+            
+            // Delete the helix
+            delete updatedHelices[helixId];
+            helicesChanged = true;
+            
+            // Update active strands count
+            setActiveStrands(prev => {
+              const newCounts = [...prev];
+              newCounts[helix.strandIndex]--;
+              return newCounts;
+            });
+            
+            return;
+          }
+          break;
       }
       
       // Update position with some 3D wobble
@@ -510,254 +852,371 @@ const AnimatedLandingPage = () => {
         helix.rotateX = (helix.rotateX || 0) + (Math.random() - 0.5) * 5; // Add rotational energy on bounce
       }
       
-      // Position the rods to form the DNA double helix
-      // For scientifically accurate proportions
-      const basePairsPerTurn = 10;
-      const turnHeight = helix.height / helix.turns;
-      
-      // Position backbone rods
-      helix.backboneRods.forEach((rodId, index) => {
-        const rodIndex = rods.findIndex(r => r.id === rodId);
-        if (rodIndex !== -1) {
-          const isLeftBackbone = index < helix.backboneRods.length / 2;
-          const backboneIndex = isLeftBackbone 
-            ? index 
-            : index - helix.backboneRods.length / 2;
+      // Intertwine with target helix if rewinding with target
+      if (helix.state === 'rewinding' && helix.targetHelix && updatedHelices[helix.targetHelix]) {
+        const target = updatedHelices[helix.targetHelix];
+        
+        // Gradually move toward target
+        const intertwineSpeed = 0.02; // Speed of intertwining
+        const dx = target.centerX - helix.centerX;
+        const dy = target.centerY - helix.centerY;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        
+        if (dist > 10) { // Don't get too close
+          helix.centerX += dx * intertwineSpeed * (deltaTime / 16);
+          helix.centerY += dy * intertwineSpeed * (deltaTime / 16);
           
-          // Smooth formation animation using formationProgress
-          const formationT = Math.min(1, helix.formationProgress * 2); // Double speed for early appearance
-          
-          // Calculate position along the helix
-          const turnProgress = (backboneIndex % basePairsPerTurn) / basePairsPerTurn;
-          const turnIndex = Math.floor(backboneIndex / basePairsPerTurn);
-          
-          // Vertical position
-          const verticalProgress = (turnIndex + turnProgress) / helix.turns;
-          const verticalOffset = -helix.height/2 + verticalProgress * helix.height;
-          
-          // Angle around the helix
-          const angleOffset = turnProgress * Math.PI * 2 + (isLeftBackbone ? 0 : Math.PI);
-          
-          // Apply the helix rotation and width
-          const rotX = Math.cos(angleOffset + helix.rotation) * helix.width/2 * formationT;
-          const rotY = Math.sin(angleOffset + helix.rotation) * helix.width/2 * formationT;
-          
-          // Final position with formation animation
-          const targetX = helix.centerX + rotX;
-          const targetY = helix.centerY + rotY + verticalOffset * formationT;
-          
-          // Angle for the rod - tangent to the helix curve
-          const tangentAngle = angleOffset + helix.rotation + Math.PI/2;
-          
-          // Update the rod with easing
-          setRods(prev => {
-            const newRods = [...prev];
-            const rod = newRods[rodIndex];
-            
-            // Generate a gradient based on position for enhanced visual depth
-            const gradientAngle = Math.floor(angleOffset * (180/Math.PI) + helix.rotation * (180/Math.PI)) % 360;
-            
-            // Determine gradient colors based on decay state
-            let gradientStart, gradientEnd;
-            
-            if (helix.decaying) {
-              // During decay, transition to crimson
-              const decayT = helix.decayProgress;
-              
-              // Start color (light)
-              const startR = 230;
-              const startG = 230;
-              const startB = 240;
-              
-              // End color (crimson)
-              const endR = 220;
-              const endG = 20;
-              const endB = 60;
-              
-              // Interpolate RGB values for gradient start and end
-              const rStart = Math.round(startR + (endR - startR) * decayT);
-              const gStart = Math.round(startG + (endG - startG) * decayT);
-              const bStart = Math.round(startB + (endB - startB) * decayT);
-              
-              const rEnd = Math.round((startR - 30) + (endR - 50 - (startR - 30)) * decayT);
-              const gEnd = Math.round((startG - 30) + (endG - 10 - (startG - 30)) * decayT);
-              const bEnd = Math.round((startB - 30) + (endB - 10 - (startB - 30)) * decayT);
-              
-              gradientStart = `rgba(${rStart}, ${gStart}, ${bStart}, ${0.85 - decayT * 0.25})`;
-              gradientEnd = `rgba(${rEnd}, ${gEnd}, ${bEnd}, ${0.85 - decayT * 0.25})`;
-            } else {
-              // Normal state
-              gradientStart = isLeftBackbone 
-                ? `rgba(240, 240, 250, ${0.3 + 0.65 * helix.formationProgress})`
-                : `rgba(235, 235, 245, ${0.3 + 0.65 * helix.formationProgress})`;
-              
-              gradientEnd = isLeftBackbone 
-                ? `rgba(210, 210, 235, ${0.3 + 0.65 * helix.formationProgress})`
-                : `rgba(200, 200, 230, ${0.3 + 0.65 * helix.formationProgress})`;
-            }
-            
-            // Enhanced shadow effect with directional light
-            const shadowBlur = helix.decaying 
-              ? 2 + helix.decayProgress * 3
-              : 2 + helix.formationProgress * 1.5;
-              
-            const shadowColor = helix.decaying
-              ? `rgba(220, 20, 60, ${0.4 + helix.decayProgress * 0.3})`
-              : `rgba(180, 180, 255, ${0.3 + helix.formationProgress * 0.4})`;
-            
-            // Apply 3D rotations from helix to rod
-            const perspective = helix.perspective || 800;
-            const rotateX = (helix.rotateX || 0) + Math.sin(angleOffset) * 5;
-            const rotateY = (helix.rotateY || 0) + Math.cos(angleOffset) * 5;
-            
-            newRods[rodIndex] = {
-              ...rod,
-              x: targetX,
-              y: targetY,
-              angle: tangentAngle,
-              // Scale from 0 to 1 during formation
-              scale: helix.formationProgress,
-              // Add subtle blur based on movement speed
-              blur: helix.decaying ? rod.blur : Math.min(1, Math.sqrt(helix.vx*helix.vx + helix.vy*helix.vy) * 3),
-              // Maintain opacity based on decay state
-              opacity: helix.decaying 
-                ? rod.opacity
-                : 0.3 + 0.65 * helix.formationProgress,
-              // Apply gradient
-              gradient: true,
-              gradientAngle,
-              gradientStart,
-              gradientEnd,
-              // Shadow effects
-              shadowBlur,
-              shadowColor,
-              // 3D effects
-              perspective,
-              rotateX,
-              rotateY,
-              // Increase thickness by 30%
-              thickness: 3.2
-            };
-            return newRods;
-          });
+          // Match rotation speed with target
+          helix.vRotation = (helix.vRotation + target.vRotation) / 2;
         }
-      });
+      }
       
-      // Position base pair rods
-      helix.basepairRods.forEach((rodId, index) => {
-        const rodIndex = rods.findIndex(r => r.id === rodId);
-        if (rodIndex !== -1) {
-          // Base pairs connect the two backbones
-          // Smooth formation animation - appear slightly after backbones
-          const formationT = Math.max(0, Math.min(1, (helix.formationProgress - 0.2) * 1.25));
-          
-          // Calculate positions along the helix
-          const turnIndex = Math.floor(index / (basePairsPerTurn / 2));
-          const pairProgress = (index % (basePairsPerTurn / 2)) / (basePairsPerTurn / 2);
-          
-          // Vertical position
-          const verticalProgress = (turnIndex + pairProgress) / helix.turns;
-          const verticalOffset = -helix.height/2 + verticalProgress * helix.height;
-          
-          // Angle around the helix
-          const angleOffset = pairProgress * Math.PI + helix.rotation;
-          
-          // Position at center of helix
-          const centerX = helix.centerX;
-          const centerY = helix.centerY + verticalOffset * formationT;
-          
-          // Angle for base pair - perpendicular to backbone tangent
-          const basePairAngle = angleOffset;
-          
-          // Apply 3D rotations from helix to rod
-          const perspective = helix.perspective || 800;
-          const rotateX = (helix.rotateX || 0) + Math.sin(angleOffset) * 10; // More pronounced for base pairs
-          const rotateY = (helix.rotateY || 0) + Math.cos(angleOffset) * 10;
-          
-          // Update the rod with 3D effects
-          setRods(prev => {
-            const newRods = [...prev];
-            const rod = newRods[rodIndex];
-            
-            // Determine gradient colors for basepair
-            let gradientStart, gradientEnd;
-            
-            if (helix.decaying) {
-              // During decay, transition to crimson
-              const decayT = helix.decayProgress;
-              
-              // Start color (light blue tint)
-              const startR = 210;
-              const startG = 210;
-              const startB = 255;
-              
-              // End color (crimson)
-              const endR = 220;
-              const endG = 20;
-              const endB = 60;
-              
-              // Interpolate RGB values for gradient
-              const rStart = Math.round(startR + (endR - startR) * decayT);
-              const gStart = Math.round(startG + (endG - startG) * decayT);
-              const bStart = Math.round(startB + (endB - startB) * decayT);
-              
-              const rEnd = Math.round((startR - 40) + (endR - 40 - (startR - 40)) * decayT);
-              const gEnd = Math.round((startG - 40) + (endG - 10 - (startG - 40)) * decayT);
-              const bEnd = Math.round((startB - 40) + (endB - 10 - (startB - 40)) * decayT);
-              
-              gradientStart = `rgba(${rStart}, ${gStart}, ${bStart}, ${0.85 - decayT * 0.25})`;
-              gradientEnd = `rgba(${rEnd}, ${gEnd}, ${bEnd}, ${0.85 - decayT * 0.25})`;
-            } else {
-              // Normal state - enhanced colors for basepairs
-              gradientStart = `rgba(220, 220, 255, ${0.35 + 0.55 * formationT})`;
-              gradientEnd = `rgba(180, 180, 255, ${0.35 + 0.55 * formationT})`;
-            }
-            
-            // Enhanced shadow effect for basepairs
-            const shadowBlur = helix.decaying 
-              ? 2 + helix.decayProgress * 3.5
-              : 2.5 + formationT * 2;
-              
-            const shadowColor = helix.decaying
-              ? `rgba(220, 20, 60, ${0.5 + helix.decayProgress * 0.3})`
-              : `rgba(160, 160, 255, ${0.4 + formationT * 0.3})`;
-            
-            newRods[rodIndex] = {
-              ...rod,
-              x: centerX,
-              y: centerY,
-              angle: basePairAngle,
-              // Scale from 0 to 1 during formation
-              scale: formationT,
-              // Add subtle blur based on movement
-              blur: helix.decaying ? rod.blur : Math.min(1, Math.sqrt(helix.vx*helix.vx + helix.vy*helix.vy) * 2),
-              // Adjust opacity
-              opacity: helix.decaying 
-                ? rod.opacity 
-                : 0.35 + 0.6 * formationT,
-              // Apply gradient
-              gradient: true,
-              gradientStart,
-              gradientEnd,
-              // Shadow effects
-              shadowBlur,
-              shadowColor,
-              // 3D effects
-              perspective,
-              rotateX,
-              rotateY,
-              // Increase thickness by 30%
-              thickness: 2.8
-            };
-            return newRods;
-          });
-        }
-      });
+      // Position rods for the DNA double helix based on the helix state
+      positionHelixRods(helix, deltaTime);
     });
     
     if (helicesChanged) {
       setHelices(updatedHelices);
     }
+  };
+  
+  // Position the rods in a helix based on its current state
+  const positionHelixRods = (helix: DNAHelix, deltaTime: number) => {
+    const basePairsPerTurn = 10;
+    const turnHeight = helix.height / helix.turns;
+    let widthMultiplier = 1;
+    
+    // Adjust width based on unwinding/rewinding state
+    if (helix.state === 'unwinding' && helix.unwindProgress !== undefined) {
+      widthMultiplier = 1 + helix.unwindProgress * 0.8; // Expand by up to 80%
+    } else if (helix.state === 'rewinding' && helix.rewindProgress !== undefined) {
+      // Start from expanded width and contract back
+      widthMultiplier = 1 + 0.8 * (1 - helix.rewindProgress);
+    }
+    
+    // Position backbone rods
+    helix.backboneRods.forEach((rodId, index) => {
+      const rodIndex = rods.findIndex(r => r.id === rodId);
+      if (rodIndex === -1) return;
+      
+      const isLeftBackbone = index < helix.backboneRods.length / 2;
+      const backboneIndex = isLeftBackbone 
+        ? index 
+        : index - helix.backboneRods.length / 2;
+      
+      // Formation progress affects scale
+      let formationT = 0;
+      
+      if (helix.state === 'forming') {
+        // Smooth formation animation
+        formationT = Math.min(1, helix.formationProgress * 2); // Double speed for early appearance
+      } else if (helix.state === 'stable' || helix.state === 'unwinding' || helix.state === 'rewinding') {
+        formationT = 1; // Fully formed
+      } else if (helix.state === 'decaying') {
+        formationT = 1 - helix.decayProgress * 0.2; // Slight scale reduction during decay
+      }
+      
+      // Calculate position along the helix
+      const turnProgress = (backboneIndex % basePairsPerTurn) / basePairsPerTurn;
+      const turnIndex = Math.floor(backboneIndex / basePairsPerTurn);
+      
+      // Vertical position
+      const verticalProgress = (turnIndex + turnProgress) / helix.turns;
+      const verticalOffset = -helix.height/2 + verticalProgress * helix.height;
+      
+      // Angle around the helix
+      const angleOffset = turnProgress * Math.PI * 2 + (isLeftBackbone ? 0 : Math.PI);
+      
+      // Apply the helix rotation and width with unwinding adjustment
+      const rotX = Math.cos(angleOffset + helix.rotation) * (helix.width/2 * widthMultiplier) * formationT;
+      const rotY = Math.sin(angleOffset + helix.rotation) * (helix.width/2 * widthMultiplier) * formationT;
+      
+      // Final position with formation animation
+      const targetX = helix.centerX + rotX;
+      const targetY = helix.centerY + rotY + verticalOffset * formationT;
+      
+      // Angle for the rod - tangent to the helix curve
+      const tangentAngle = angleOffset + helix.rotation + Math.PI/2;
+      
+      // Update the rod with easing
+      setRods(prev => {
+        const newRods = [...prev];
+        const rod = newRods[rodIndex];
+        if (!rod) return prev;
+        
+        // Get colors from the color scheme
+        let gradientStart, gradientEnd;
+        
+        if (helix.state === 'decaying') {
+          // During decay, transition to crimson
+          const decayT = helix.decayProgress;
+          
+          // Parse start color
+          const startColorMatch = helix.colorScheme.backboneStart.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
+          const endColorMatch = helix.colorScheme.decayStart.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
+          
+          if (startColorMatch && endColorMatch) {
+            // Start color
+            const startR = parseInt(startColorMatch[1]);
+            const startG = parseInt(startColorMatch[2]);
+            const startB = parseInt(startColorMatch[3]);
+            const startA = parseFloat(startColorMatch[4]);
+            
+            // End color (crimson)
+            const endR = parseInt(endColorMatch[1]);
+            const endG = parseInt(endColorMatch[2]);
+            const endB = parseInt(endColorMatch[3]);
+            const endA = parseFloat(endColorMatch[4]);
+            
+            // Interpolate RGB values for gradient start and end
+            const rStart = Math.round(startR + (endR - startR) * decayT);
+            const gStart = Math.round(startG + (endG - startG) * decayT);
+            const bStart = Math.round(startB + (endB - startB) * decayT);
+            const aStart = startA + (endA - startA) * decayT;
+            
+            const rEnd = Math.round((startR - 30) + (endR - 50 - (startR - 30)) * decayT);
+            const gEnd = Math.round((startG - 30) + (endG - 10 - (startG - 30)) * decayT);
+            const bEnd = Math.round((startB - 30) + (endB - 10 - (startB - 30)) * decayT);
+            const aEnd = Math.max(0, aStart - 0.1);
+            
+            gradientStart = `rgba(${rStart}, ${gStart}, ${bStart}, ${aStart - decayT * 0.25})`;
+            gradientEnd = `rgba(${rEnd}, ${gEnd}, ${bEnd}, ${aEnd - decayT * 0.25})`;
+          } else {
+            // Fallback if parsing fails
+            gradientStart = helix.colorScheme.decayStart;
+            gradientEnd = helix.colorScheme.decayEnd;
+          }
+        } else {
+          // Normal state colors from scheme
+          gradientStart = helix.colorScheme.backboneStart;
+          gradientEnd = helix.colorScheme.backboneEnd;
+        }
+        
+        // Enhanced shadow effect with directional light
+        const shadowBlur = helix.state === 'decaying'
+          ? 2 + helix.decayProgress * 3
+          : 2 + (helix.state === 'forming' ? helix.formationProgress : 1) * 1.5;
+          
+        const shadowColor = helix.state === 'decaying'
+          ? helix.colorScheme.decayStart.replace('0.85', `${0.4 + helix.decayProgress * 0.3}`)
+          : helix.colorScheme.glowColor;
+        
+        // Apply 3D rotations from helix to rod
+        const perspective = helix.perspective || 800;
+        const rotateX = (helix.rotateX || 0) + Math.sin(angleOffset) * 5;
+        const rotateY = (helix.rotateY || 0) + Math.cos(angleOffset) * 5;
+        
+        // Additional transforms based on helix state
+        let additionalScale = 1;
+        let additionalBlur = 0;
+        
+        if (helix.state === 'unwinding' && helix.unwindProgress !== undefined) {
+          // During unwinding, apply some effects
+          additionalBlur = helix.unwindProgress * 1.2;
+          additionalScale = 1 - helix.unwindProgress * 0.1;
+        } else if (helix.state === 'rewinding' && helix.rewindProgress !== undefined) {
+          // During rewinding, apply some effects
+          additionalBlur = (1 - helix.rewindProgress) * 1.2;
+          additionalScale = 0.9 + helix.rewindProgress * 0.1;
+        }
+        
+        newRods[rodIndex] = {
+          ...rod,
+          x: targetX,
+          y: targetY,
+          angle: tangentAngle,
+          // Scale from 0 to 1 during formation, with additional state effects
+          scale: (helix.state === 'forming' ? helix.formationProgress : 1) * additionalScale,
+          // Add blur based on movement and state
+          blur: (helix.state === 'decaying' ? rod.blur : Math.min(1, Math.sqrt(helix.vx*helix.vx + helix.vy*helix.vy) * 3)) + additionalBlur,
+          // Maintain opacity based on state
+          opacity: helix.state === 'decaying' 
+            ? rod.opacity
+            : 0.3 + 0.65 * (helix.state === 'forming' ? helix.formationProgress : 1),
+          // Apply gradient
+          gradient: true,
+          gradientStart: gradientStart,
+          gradientEnd: gradientEnd,
+          // Shadow effects
+          shadowBlur,
+          shadowColor,
+          // 3D effects
+          perspective,
+          rotateX,
+          rotateY,
+          // Thickness based on strand type
+          thickness: 3.2
+        };
+        return newRods;
+      });
+    });
+    
+    // Position base pair rods
+    helix.basepairRods.forEach((rodId, index) => {
+      const rodIndex = rods.findIndex(r => r.id === rodId);
+      if (rodIndex === -1) return;
+      
+      // Calculate formation progress based on helix state
+      let formationT = 0;
+      
+      if (helix.state === 'forming') {
+        // Base pairs appear slightly after backbones
+        formationT = Math.max(0, Math.min(1, (helix.formationProgress - 0.2) * 1.25));
+      } else if (helix.state === 'stable' || helix.state === 'unwinding' || helix.state === 'rewinding') {
+        formationT = 1;
+      } else if (helix.state === 'decaying') {
+        formationT = 1 - helix.decayProgress * 0.2;
+      }
+      
+      // Adjust width during transformations
+      if (helix.state === 'unwinding' && helix.unwindProgress !== undefined) {
+        widthMultiplier = 1 + helix.unwindProgress * 0.8;
+      } else if (helix.state === 'rewinding' && helix.rewindProgress !== undefined) {
+        widthMultiplier = 1 + 0.8 * (1 - helix.rewindProgress);
+      }
+      
+      // Calculate positions along the helix
+      const turnIndex = Math.floor(index / (basePairsPerTurn / 2));
+      const pairProgress = (index % (basePairsPerTurn / 2)) / (basePairsPerTurn / 2);
+      
+      // Vertical position
+      const verticalProgress = (turnIndex + pairProgress) / helix.turns;
+      const verticalOffset = -helix.height/2 + verticalProgress * helix.height;
+      
+      // Angle around the helix - adjusted during unwinding/rewinding
+      let angleOffset = pairProgress * Math.PI + helix.rotation;
+      
+      // During unwinding, make the base pairs more perpendicular
+      if (helix.state === 'unwinding' && helix.unwindProgress !== undefined) {
+        // Progressively rotate base pairs to be more perpendicular
+        const unwoundAngle = (pairProgress * Math.PI + helix.rotation) % (Math.PI * 2);
+        angleOffset = unwoundAngle + helix.unwindProgress * (Math.PI/2 - (unwoundAngle % (Math.PI/2)));
+      } else if (helix.state === 'rewinding' && helix.rewindProgress !== undefined) {
+        // Reverse of unwinding
+        const unwoundAngle = (pairProgress * Math.PI + helix.rotation) % (Math.PI * 2);
+        const perpOffset = Math.PI/2 - (unwoundAngle % (Math.PI/2));
+        angleOffset = unwoundAngle + perpOffset * (1 - helix.rewindProgress);
+      }
+      
+      // Position at center of helix
+      const centerX = helix.centerX;
+      const centerY = helix.centerY + verticalOffset * formationT;
+      
+      // Angle for base pair - perpendicular to backbone tangent
+      const basePairAngle = angleOffset;
+      
+      // Apply 3D rotations
+      const perspective = helix.perspective || 800;
+      const rotateX = (helix.rotateX || 0) + Math.sin(angleOffset) * 10;
+      const rotateY = (helix.rotateY || 0) + Math.cos(angleOffset) * 10;
+      
+      // Update the rod with 3D effects
+      setRods(prev => {
+        const newRods = [...prev];
+        const rod = newRods[rodIndex];
+        if (!rod) return prev;
+        
+        // Determine gradient colors for basepair
+        let gradientStart, gradientEnd;
+        
+        if (helix.state === 'decaying') {
+          // During decay, transition to crimson
+          const decayT = helix.decayProgress;
+          
+          // Parse start color
+          const startColorMatch = helix.colorScheme.basepairStart.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
+          const endColorMatch = helix.colorScheme.decayStart.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
+          
+          if (startColorMatch && endColorMatch) {
+            // Start color (base pair color)
+            const startR = parseInt(startColorMatch[1]);
+            const startG = parseInt(startColorMatch[2]);
+            const startB = parseInt(startColorMatch[3]);
+            const startA = parseFloat(startColorMatch[4]);
+            
+            // End color (crimson)
+            const endR = parseInt(endColorMatch[1]);
+            const endG = parseInt(endColorMatch[2]);
+            const endB = parseInt(endColorMatch[3]);
+            const endA = parseFloat(endColorMatch[4]);
+            
+            // Interpolate RGB values for gradient
+            const rStart = Math.round(startR + (endR - startR) * decayT);
+            const gStart = Math.round(startG + (endG - startG) * decayT);
+            const bStart = Math.round(startB + (endB - startB) * decayT);
+            const aStart = startA + (endA - startA) * decayT;
+            
+            const rEnd = Math.round((startR - 40) + (endR - 40 - (startR - 40)) * decayT);
+            const gEnd = Math.round((startG - 40) + (endG - 10 - (startG - 40)) * decayT);
+            const bEnd = Math.round((startB - 40) + (endB - 10 - (startB - 40)) * decayT);
+            const aEnd = Math.max(0, aStart - 0.1);
+            
+            gradientStart = `rgba(${rStart}, ${gStart}, ${bStart}, ${aStart - decayT * 0.25})`;
+            gradientEnd = `rgba(${rEnd}, ${gEnd}, ${bEnd}, ${aEnd - decayT * 0.25})`;
+          } else {
+            // Fallback
+            gradientStart = helix.colorScheme.decayStart;
+            gradientEnd = helix.colorScheme.decayEnd;
+          }
+        } else {
+          // Normal state - colors from scheme
+          gradientStart = helix.colorScheme.basepairStart;
+          gradientEnd = helix.colorScheme.basepairEnd;
+        }
+        
+        // Enhanced shadow effect for basepairs
+        const shadowBlur = helix.state === 'decaying' 
+          ? 2 + helix.decayProgress * 3.5
+          : 2.5 + formationT * 2;
+          
+        const shadowColor = helix.state === 'decaying'
+          ? helix.colorScheme.decayStart.replace('0.85', `${0.5 + helix.decayProgress * 0.3}`)
+          : helix.colorScheme.glowColor;
+        
+        // Additional transforms based on helix state
+        let additionalScale = 1;
+        let additionalBlur = 0;
+        
+        if (helix.state === 'unwinding' && helix.unwindProgress !== undefined) {
+          // During unwinding, apply some effects
+          additionalBlur = helix.unwindProgress * 1.2;
+          additionalScale = 1 - helix.unwindProgress * 0.1;
+        } else if (helix.state === 'rewinding' && helix.rewindProgress !== undefined) {
+          // During rewinding, apply some effects
+          additionalBlur = (1 - helix.rewindProgress) * 1.2;
+          additionalScale = 0.9 + helix.rewindProgress * 0.1;
+        }
+        
+        newRods[rodIndex] = {
+          ...rod,
+          x: centerX,
+          y: centerY,
+          angle: basePairAngle,
+          // Scale from 0 to 1 during formation, with additional state effects
+          scale: formationT * additionalScale,
+          // Add blur based on movement and state
+          blur: (helix.state === 'decaying' ? rod.blur : Math.min(1, Math.sqrt(helix.vx*helix.vx + helix.vy*helix.vy) * 2)) + additionalBlur,
+          // Adjust opacity
+          opacity: helix.state === 'decaying' 
+            ? rod.opacity 
+            : 0.35 + 0.6 * formationT,
+          // Apply gradient
+          gradient: true,
+          gradientStart,
+          gradientEnd,
+          // Shadow effects
+          shadowBlur,
+          shadowColor,
+          // 3D effects
+          perspective,
+          rotateX,
+          rotateY,
+          // Base pair thickness
+          thickness: 2.8
+        };
+        return newRods;
+      });
+    });
   };
   
   // Generate ambient particles around helices
@@ -772,16 +1231,16 @@ const AnimatedLandingPage = () => {
     const x = helix.centerX + Math.cos(angle) * distance;
     const y = helix.centerY + Math.sin(angle) * distance + (Math.random() - 0.5) * verticalRange;
     
-    // Particle color based on helix state
+    // Particle color based on helix state and color scheme
     let particleColor;
-    if (helix.decaying) {
+    if (helix.state === 'decaying') {
       // Crimson particles during decay
       const alpha = 0.3 + Math.random() * 0.3;
-      particleColor = `rgba(220, 20, 60, ${alpha})`;
+      particleColor = helix.colorScheme.decayStart.replace('0.85', `${alpha}`);
     } else {
-      // Bluish-white particles during normal state
+      // Use color scheme for particles
       const alpha = 0.2 + Math.random() * 0.25;
-      particleColor = `rgba(210, 210, 255, ${alpha})`;
+      particleColor = helix.colorScheme.particleColor;
     }
     
     // Particle properties
@@ -812,11 +1271,21 @@ const AnimatedLandingPage = () => {
     const x = helix.centerX + Math.cos(angle) * distance;
     const y = helix.centerY + Math.sin(angle) * distance + (Math.random() - 0.5) * verticalRange;
     
-    // Crimson particles with varying intensity during decay
+    // Use decay color from scheme
+    const decayColorMatch = helix.colorScheme.decayStart.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
+    
+    if (!decayColorMatch) return; // Skip if color parsing fails
+    
+    // Get decay color components
+    const r = parseInt(decayColorMatch[1]);
+    const g = parseInt(decayColorMatch[2]);
+    const b = parseInt(decayColorMatch[3]);
+    
+    // Vary intensity and alpha
     const intensity = 0.6 + Math.random() * 0.4;
-    const r = Math.floor(220 * intensity);
-    const g = Math.floor(20 * intensity);
-    const b = Math.floor(60 * intensity);
+    const rMod = Math.floor(r * intensity);
+    const gMod = Math.floor(g * intensity);
+    const bMod = Math.floor(b * intensity);
     const alpha = 0.4 + Math.random() * 0.3;
     
     // Create particle with outward velocity from helix center
@@ -838,7 +1307,7 @@ const AnimatedLandingPage = () => {
       opacity: alpha,
       lifespan: 1 + Math.random() * 1.5, // Shorter lifespan for decay particles
       age: 0,
-      color: `rgba(${r}, ${g}, ${b}, ${alpha})`,
+      color: `rgba(${rMod}, ${gMod}, ${bMod}, ${alpha})`,
       blur: 2 + Math.random() * 2 // More blur for glow effect
     };
     
@@ -961,8 +1430,8 @@ const AnimatedLandingPage = () => {
                 position: 'absolute',
                 width: `${rod.length}px`,
                 height: `${rod.thickness || 2.6}px`,
-                background: rod.gradient 
-                  ? `linear-gradient(${rod.gradientAngle || 0}deg, ${rod.gradientStart || rod.color}, ${rod.gradientEnd || rod.color})`
+                background: rod.gradient && rod.gradientStart && rod.gradientEnd
+                  ? `linear-gradient(${rod.angle * (180/Math.PI)}deg, ${rod.gradientStart}, ${rod.gradientEnd})`
                   : rod.color,
                 opacity: rod.opacity,
                 transformOrigin: 'center',
@@ -997,9 +1466,7 @@ const AnimatedLandingPage = () => {
                     width: '5px',
                     height: '5px',
                     borderRadius: '50%',
-                    background: rod.gradient 
-                      ? rod.gradientStart || rod.color 
-                      : rod.color,
+                    background: rod.gradientStart || rod.color,
                     left: rod.x + Math.cos(rod.angle) * (rod.length/2) - 2.5,
                     top: rod.y + Math.sin(rod.angle) * (rod.length/2) - 2.5,
                     opacity: rod.opacity,
@@ -1021,9 +1488,7 @@ const AnimatedLandingPage = () => {
                     width: '5px',
                     height: '5px',
                     borderRadius: '50%',
-                    background: rod.gradient 
-                      ? rod.gradientEnd || rod.color 
-                      : rod.color,
+                    background: rod.gradientEnd || rod.color,
                     left: rod.x - Math.cos(rod.angle) * (rod.length/2) - 2.5,
                     top: rod.y - Math.sin(rod.angle) * (rod.length/2) - 2.5,
                     opacity: rod.opacity,
@@ -1051,9 +1516,7 @@ const AnimatedLandingPage = () => {
                     width: '6px',
                     height: '6px',
                     borderRadius: '50%',
-                    background: rod.gradient 
-                      ? rod.gradientStart || rod.color 
-                      : rod.color,
+                    background: rod.gradientStart || rod.color,
                     left: rod.x + Math.cos(rod.angle) * (rod.length/2) - 3,
                     top: rod.y + Math.sin(rod.angle) * (rod.length/2) - 3,
                     opacity: rod.opacity,
@@ -1075,9 +1538,7 @@ const AnimatedLandingPage = () => {
                     width: '6px',
                     height: '6px',
                     borderRadius: '50%',
-                    background: rod.gradient 
-                      ? rod.gradientEnd || rod.color 
-                      : rod.color,
+                    background: rod.gradientEnd || rod.color,
                     left: rod.x - Math.cos(rod.angle) * (rod.length/2) - 3,
                     top: rod.y - Math.sin(rod.angle) * (rod.length/2) - 3,
                     opacity: rod.opacity,
@@ -1111,20 +1572,22 @@ const AnimatedLandingPage = () => {
               width: 150,
               height: 150,
               borderRadius: '50%',
-              background: helix.decaying 
-                ? `radial-gradient(circle, rgba(220, 20, 60, ${0.2 * (1 - helix.decayProgress)}) 0%, transparent 70%)`
-                : `radial-gradient(circle, rgba(180, 180, 255, ${0.15 * helix.formationProgress}) 0%, transparent 70%)`,
-              opacity: helix.decaying ? 1 - helix.decayProgress : helix.formationProgress,
+              background: helix.state === 'decaying' 
+                ? `radial-gradient(circle, ${helix.colorScheme.decayStart.replace('0.85', `${0.2 * (1 - helix.decayProgress)}`)}) 0%, transparent 70%)`
+                : `radial-gradient(circle, ${helix.colorScheme.glowColor.replace('0.5', `${0.15 * (helix.state === 'forming' ? helix.formationProgress : 1)}`)}) 0%, transparent 70%)`,
+              opacity: helix.state === 'decaying' 
+                ? 1 - helix.decayProgress 
+                : (helix.state === 'forming' ? helix.formationProgress : 1),
               transform: `
-                scale(${1 + helix.formationProgress * 0.5}) 
+                scale(${1 + (helix.state === 'forming' ? helix.formationProgress : 1) * 0.5}) 
                 perspective(${helix.perspective || 800}px) 
                 rotateX(${helix.rotateX || 0}deg) 
                 rotateY(${helix.rotateY || 0}deg)
               `,
               transition: 'all 0.5s cubic-bezier(0.25, 0.1, 0.25, 1)',
-              boxShadow: helix.decaying 
-                ? `0 0 50px rgba(220, 20, 60, ${0.1 * (1 - helix.decayProgress)})`
-                : `0 0 50px rgba(180, 180, 255, ${0.1 * helix.formationProgress})`,
+              boxShadow: helix.state === 'decaying' 
+                ? `0 0 50px ${helix.colorScheme.decayStart.replace('0.85', `${0.1 * (1 - helix.decayProgress)}`)})`
+                : `0 0 50px ${helix.colorScheme.glowColor.replace('0.5', `${0.1 * (helix.state === 'forming' ? helix.formationProgress : 1)}`)}`,
               zIndex: 1
             }}
           />
