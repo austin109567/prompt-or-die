@@ -134,23 +134,24 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
   
   const navigateTo = (path: string = '') => {
     if (!path) {
-      setOutputLines(prev => [...prev, { 
+      setOutputLines(prev => [...prev, {
         text: "Error: No destination specified. Usage: goto <page>",
-        isError: true 
+        isError: true
       }]);
       return;
     }
-    
+
     // Close terminal
     onOpenChange(false);
-    
+
     // Handle navigation
-    setOutputLines(prev => [...prev, { text: `Navigating to ${path}...` }]);
-    
+    const sanitized = path.replace(/[^a-zA-Z0-9-_/]/g, '');
+    setOutputLines(prev => [...prev, { text: `Navigating to ${sanitized}...` }]);
+
     // Use setTimeout to ensure the navigation message is seen before redirecting
     setTimeout(() => {
       try {
-        navigate(`/${path.replace(/^\//, '')}`);
+        navigate(`/${sanitized.replace(/^\//, '')}`);
       } catch (error) {
         console.error('Navigation error:', error);
       }
