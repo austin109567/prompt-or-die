@@ -32,11 +32,11 @@ const TerminalWrapper = ({ children }: TerminalWrapperProps) => {
     <>
       {children}
       
-      {/* Terminal Button (fixed position) */}
+      {/* Terminal Button (fixed position) - moved from right to left */}
       <Button 
         size="icon"
         variant="outline"
-        className="fixed right-4 bottom-4 z-50 h-10 w-10 rounded-full shadow-lg border-primary/30 hover:border-primary hover:bg-primary/20"
+        className="fixed left-4 bottom-4 z-50 h-10 w-10 rounded-full shadow-lg border-primary/30 hover:border-primary hover:bg-primary/20"
         onClick={openTerminal}
       >
         <TerminalIcon className="h-5 w-5 text-primary" />
