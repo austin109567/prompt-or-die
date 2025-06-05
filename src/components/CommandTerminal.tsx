@@ -22,6 +22,12 @@ interface TokenData {
   change24h: number;
 }
 
+// History of price data for the chart
+interface PriceHistory {
+  price: number;
+  time: string; // formatted time
+}
+
 const CommandTerminal: React.FC<CommandTerminalProps> = ({ 
   isOpen, 
   onOpenChange 
@@ -48,11 +54,16 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
     change24h: 5.8
   });
   
+  // Price history for the chart
+  const [priceHistory, setPriceHistory] = useState<PriceHistory[]>([]);
+  const maxHistoryPoints = 30; // Maximum number of points to display on the chart
+  
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const terminalRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const chartCanvasRef = useRef<HTMLCanvasElement>(null);
 
   // Authentication state for the current session
   const [authEmail, setAuthEmail] = useState('');
@@ -61,7 +72,124 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
   const [authStep, setAuthStep] = useState<'none' | 'email' | 'password' | 'handle'>('none');
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   
-  // Simulate token data updates
+  // Initialize the price history
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    // Create initial price history
+    const now = new Date();
+    const initialHistory: PriceHistory[] = [];
+    
+    for (let i = maxHistoryPoints - 1; i >= 0; i--) {
+      const time = new Date(now.getTime() - (i * 5 * 60 * 1000)); // 5 minute intervals
+      const basePrice = 2.47;
+      // Create some variation to make the chart look more realistic
+      const randomVariation = (Math.random() - 0.5) * 0.4; 
+      const historicalPrice = +(basePrice + randomVariation).toFixed(2);
+      
+      initialHistory.push({
+        price: historicalPrice,
+        time: time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+      });
+    }
+    
+    setPriceHistory(initialHistory);
+  }, [isOpen]);
+  
+  // Draw the chart whenever price history changes
+  useEffect(() => {
+    if (!chartCanvasRef.current || priceHistory.length === 0) return;
+    
+    const drawChart = () => {
+      const canvas = chartCanvasRef.current;
+      if (!canvas) return;
+      
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      
+      // Clear the canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Get min and max prices for scaling
+      const prices = priceHistory.map(p => p.price);
+      let minPrice = Math.min(...prices) * 0.995; // Add 0.5% padding
+      let maxPrice = Math.max(...prices) * 1.005;
+      
+      // Ensure there's always some range even if price is flat
+      if (maxPrice - minPrice < 0.1) {
+        minPrice = minPrice - 0.05;
+        maxPrice = maxPrice + 0.05;
+      }
+      
+      const range = maxPrice - minPrice;
+      
+      // Draw the chart
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      
+      const positiveChange = tokenData.change24h >= 0;
+      
+      // Gradient for the line
+      const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      gradient.addColorStop(0, positiveChange ? 'rgba(0, 255, 0, 0.8)' : 'rgba(255, 0, 0, 0.8)');
+      gradient.addColorStop(1, 'rgba(139, 0, 0, 0.3)');
+      ctx.strokeStyle = positiveChange ? 'rgba(0, 255, 0, 0.8)' : 'rgba(255, 0, 0, 0.8)';
+      
+      // Create gradient for area under the curve
+      const fillGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      fillGradient.addColorStop(0, positiveChange ? 'rgba(0, 255, 0, 0.1)' : 'rgba(255, 0, 0, 0.1)');
+      fillGradient.addColorStop(1, 'rgba(139, 0, 0, 0.05)');
+      
+      // Starting point
+      const stepX = canvas.width / (priceHistory.length - 1);
+      const getY = (price: number) => canvas.height - ((price - minPrice) / range * canvas.height);
+      
+      ctx.moveTo(0, getY(priceHistory[0].price));
+      
+      // Draw lines between points
+      priceHistory.forEach((point, i) => {
+        if (i === 0) return; // Skip the first point as we've already moved to it
+        ctx.lineTo(i * stepX, getY(point.price));
+      });
+      
+      // Stroke the line
+      ctx.stroke();
+      
+      // Fill the area under the curve
+      ctx.lineTo(canvas.width, canvas.height);
+      ctx.lineTo(0, canvas.height);
+      ctx.closePath();
+      ctx.fillStyle = fillGradient;
+      ctx.fill();
+      
+      // Add grid lines
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+      ctx.lineWidth = 0.5;
+      
+      // Horizontal grid lines
+      const gridLines = 5;
+      for (let i = 0; i <= gridLines; i++) {
+        const y = (canvas.height / gridLines) * i;
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+      }
+      
+      // Vertical grid lines
+      const verticalLines = 6;
+      for (let i = 0; i <= verticalLines; i++) {
+        const x = (canvas.width / verticalLines) * i;
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+      }
+      
+      ctx.stroke();
+    };
+    
+    drawChart();
+  }, [priceHistory, tokenData.change24h]);
+  
+  // Simulate token data updates and update the price history
   useEffect(() => {
     if (!isOpen) return;
     
@@ -71,11 +199,26 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
       const volumeChange = Math.random() * 50000;
       const newChange = tokenData.change24h + (Math.random() - 0.5) * 0.5;
       
+      const newPrice = Math.max(0.01, +(tokenData.price + priceChange).toFixed(2));
+      
       setTokenData({
-        price: Math.max(0.01, +(tokenData.price + priceChange).toFixed(2)),
+        price: newPrice,
         marketCap: Math.max(1000000, Math.floor(tokenData.marketCap + volumeChange * 10)),
         volume24h: Math.max(100000, Math.floor(tokenData.volume24h + volumeChange)),
         change24h: +newChange.toFixed(1)
+      });
+      
+      // Add the new price to the history
+      setPriceHistory(prev => {
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        
+        // Add the new price and remove the oldest if we exceed maxHistoryPoints
+        const updated = [...prev, { price: newPrice, time: timeStr }];
+        if (updated.length > maxHistoryPoints) {
+          return updated.slice(1);
+        }
+        return updated;
       });
     }, 5000);
     
@@ -859,10 +1002,20 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
           <DialogTitle className="sr-only">Prompt or Die Terminal</DialogTitle>
         </DialogHeader>
         <div 
-          className="terminal-window flex flex-col h-full w-full rounded-lg bg-black overflow-hidden font-mono"
+          className="terminal-window flex flex-col h-full w-full rounded-lg bg-black overflow-hidden font-mono relative"
         >
+          {/* Price chart background */}
+          <div className="absolute inset-0 z-0 opacity-20">
+            <canvas 
+              ref={chartCanvasRef}
+              width="800" 
+              height="500"
+              className="w-full h-full"
+            />
+          </div>
+          
           {/* Terminal header with token info */}
-          <div className="terminal-header flex items-center justify-between p-2 bg-gradient-to-r from-black to-[#8B0000]/20 border-b border-[#8B0000]/30">
+          <div className="terminal-header flex items-center justify-between p-2 bg-gradient-to-r from-black to-[#8B0000]/20 border-b border-[#8B0000]/30 relative z-10">
             <div className="flex items-center gap-2">
               <div className="flex space-x-2">
                 <div 
@@ -895,7 +1048,7 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
           {/* Terminal output area */}
           <div 
             ref={terminalRef}
-            className="terminal-output flex-1 p-4 overflow-auto bg-black text-white text-sm leading-relaxed scrollbar-thin scrollbar-thumb-[#8B0000]/20 scrollbar-track-transparent"
+            className="terminal-output flex-1 p-4 overflow-auto bg-black text-white text-sm leading-relaxed scrollbar-thin scrollbar-thumb-[#8B0000]/20 scrollbar-track-transparent relative z-10"
           >
             {outputLines.map((line, index) => (
               <div key={index} className="terminal-line">
