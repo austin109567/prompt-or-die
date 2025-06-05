@@ -14,42 +14,73 @@ const enigmaticPhrases = [
   "A.I. is the mirror, the prompt is the reflection."
 ];
 
-// The characters we'll use for the floating animation
-const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-// Expanded list of words
-const words = [
-  'PROMPT', 'CODE', 'AI', 'VOID', 'CHAOS', 'ORDER', 'SYSTEM', 'WHISPER',
-  'CRAFT', 'BUILD', 'DREAM', 'THINK', 'CREATE', 'DESIGN', 'WRITE', 'LEARN',
-  'EVOLVE', 'FUTURE', 'MIND', 'NEURAL', 'DIGITAL', 'VIRTUAL', 'QUANTUM', 'VISION',
-  'SYNTAX', 'PATTERN', 'LOGIC', 'WISDOM', 'KNOWLEDGE', 'INSIGHT', 'SPARK', 'FLOW'
+// Geometric shapes we'll form
+const geometricShapes = [
+  { name: 'triangle', sides: 3 },
+  { name: 'square', sides: 4 },
+  { name: 'pentagon', sides: 5 },
+  { name: 'hexagon', sides: 6 },
+  { name: 'octagon', sides: 8 }
 ];
 
-interface Particle {
+interface LineSegment {
   id: string;
-  x: number;
-  y: number;
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
   vx: number;
   vy: number;
-  letter: string;
-  targetWord?: string;
-  targetIndex?: number;
-  isInWord: boolean;
-  wordFormed: boolean;
-  originalVx?: number;
-  originalVy?: number;
+  angle: number;
+  vAngle: number;
+  length: number;
+  color: string;
+  opacity: number;
+  inShape: boolean;
+  shapeId?: string;
+}
+
+interface GeometricShape {
+  id: string;
+  segments: string[];
+  centerX: number;
+  centerY: number;
+  vx: number;
+  vy: number;
+  rotation: number;
+  vRotation: number;
+  type: string;
+  size: number;
+  inMolecule: boolean;
+  moleculeId?: string;
+}
+
+interface Molecule {
+  id: string;
+  shapes: string[];
+  centerX: number;
+  centerY: number;
+  vx: number;
+  vy: number;
+  rotation: number;
+  vRotation: number;
+  size: number;
+  age: number;
+  fading: boolean;
 }
 
 const AnimatedLandingPage = () => {
   const { theme } = useTheme();
   const [currentPhrase, setCurrentPhrase] = useState(0);
-  const [particles, setParticles] = useState<Particle[]>([]);
+  const [lineSegments, setLineSegments] = useState<LineSegment[]>([]);
+  const [shapes, setShapes] = useState<{[key: string]: GeometricShape}>({});
+  const [molecules, setMolecules] = useState<{[key: string]: Molecule}>({});
   const canvasRef = useRef<HTMLDivElement>(null);
   const animationFrameRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
-  const [formedWords, setFormedWords] = useState<{[key: string]: {x: number, y: number, word: string, vx: number, vy: number}}>({}); 
 
-  // Set up particles
+  // Set up canvas dimensions
   useEffect(() => {
     if (!canvasRef.current) return;
     
@@ -70,289 +101,124 @@ const AnimatedLandingPage = () => {
     };
   }, []);
 
-  // Initialize particles after dimensions are set
+  // Initialize line segments after dimensions are set
   useEffect(() => {
     if (dimensions.width === 0 || dimensions.height === 0) return;
 
-    // Generate random particles distributed throughout the canvas
-    const initialParticles: Particle[] = Array.from({ length: 100 }).map((_, i) => ({
-      id: `particle-${i}`,
-      x: Math.random() * dimensions.width,
-      y: Math.random() * dimensions.height,
-      vx: (Math.random() - 0.5) * 0.5,
-      vy: (Math.random() - 0.5) * 0.5,
-      letter: characters[Math.floor(Math.random() * characters.length)],
-      isInWord: false,
-      wordFormed: false
-    }));
+    // Generate random line segments
+    const initialSegments: LineSegment[] = Array.from({ length: 80 }).map((_, i) => {
+      const centerX = Math.random() * dimensions.width;
+      const centerY = Math.random() * dimensions.height;
+      const angle = Math.random() * Math.PI * 2;
+      const length = 15 + Math.random() * 20;
+      
+      return {
+        id: `segment-${i}`,
+        startX: centerX - (Math.cos(angle) * length/2),
+        startY: centerY - (Math.sin(angle) * length/2),
+        endX: centerX + (Math.cos(angle) * length/2),
+        endY: centerY + (Math.sin(angle) * length/2),
+        vx: (Math.random() - 0.5) * 0.5,
+        vy: (Math.random() - 0.5) * 0.5,
+        angle: angle,
+        vAngle: (Math.random() - 0.5) * 0.02,
+        length: length,
+        color: theme === 'dark' ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)',
+        opacity: 0.6 + Math.random() * 0.4,
+        inShape: false
+      };
+    });
 
-    setParticles(initialParticles);
-  }, [dimensions]);
+    setLineSegments(initialSegments);
+  }, [dimensions, theme]);
 
-  // Function to check if a letter can start forming a word
-  const canFormWord = (letter: string) => {
-    // Check if the letter is a potential starting point for any of our words
-    return words.some(word => word.startsWith(letter));
-  };
-
-  // Function to find potential words that can be formed with the given prefix
-  const findPotentialWords = (prefix: string) => {
-    return words.filter(word => word.startsWith(prefix));
-  };
-
-  // Animation loop for particles
+  // Animation loop
   useEffect(() => {
-    if (particles.length === 0 || !canvasRef.current) return;
+    if (lineSegments.length === 0 || !canvasRef.current) return;
 
     const animate = (timestamp: number) => {
       if (!lastTimeRef.current) lastTimeRef.current = timestamp;
       const deltaTime = timestamp - lastTimeRef.current;
       lastTimeRef.current = timestamp;
 
-      // Keep track of formed words to display them separately
-      const newFormedWords: {[key: string]: {x: number, y: number, word: string, vx: number, vy: number}} = {...formedWords};
-      
-      setParticles(prevParticles => {
-        // Occasionally try to form a word
-        if (Math.random() < 0.005) {
-          // Find particles that are not in a word and can potentially start a word
-          const availableParticles = prevParticles.filter(p => !p.isInWord && canFormWord(p.letter));
+      // Update line segments
+      setLineSegments(prevSegments => {
+        return prevSegments.map(segment => {
+          if (segment.inShape) return segment;
           
-          if (availableParticles.length > 0) {
-            // Pick a random particle as the word starter
-            const starterParticle = availableParticles[Math.floor(Math.random() * availableParticles.length)];
-            
-            // Find potential words that start with this letter
-            const potentialWords = findPotentialWords(starterParticle.letter);
-            
-            if (potentialWords.length > 0) {
-              // Choose a random word from potential words
-              const targetWord = potentialWords[Math.floor(Math.random() * potentialWords.length)];
-              
-              if (targetWord) {
-                // Find enough free particles to form the rest of the word
-                const remainingLettersNeeded = targetWord.length - 1; // -1 because we already have the starter
-                const freeParticles = prevParticles.filter(p => p.id !== starterParticle.id && !p.isInWord)
-                                                  .sort(() => Math.random() - 0.5)
-                                                  .slice(0, remainingLettersNeeded);
-                
-                if (freeParticles.length === remainingLettersNeeded) {
-                  // Create a new array with particles assigned to the word
-                  const updatedParticles = [...prevParticles];
-                  const starterIndex = updatedParticles.findIndex(p => p.id === starterParticle.id);
-                  
-                  // Position the words in a reasonable area of the screen
-                  const wordX = Math.random() * (dimensions.width - 300) + 150; 
-                  const wordY = Math.random() * (dimensions.height - 300) + 150;
-                  
-                  // Update the starter particle
-                  updatedParticles[starterIndex] = {
-                    ...updatedParticles[starterIndex],
-                    targetWord,
-                    targetIndex: 0,
-                    isInWord: true,
-                    originalVx: updatedParticles[starterIndex].vx,
-                    originalVy: updatedParticles[starterIndex].vy
-                  };
-                  
-                  // Assign the remaining letters
-                  for (let i = 0; i < freeParticles.length; i++) {
-                    const particleIndex = updatedParticles.findIndex(p => p.id === freeParticles[i].id);
-                    if (particleIndex !== -1) {
-                      updatedParticles[particleIndex] = {
-                        ...updatedParticles[particleIndex],
-                        letter: targetWord[i + 1],  // +1 because we already have the first letter
-                        targetWord,
-                        targetIndex: i + 1,
-                        isInWord: true,
-                        originalVx: updatedParticles[particleIndex].vx,
-                        originalVy: updatedParticles[particleIndex].vy
-                      };
-                    }
-                  }
-                  
-                  return updatedParticles;
-                }
-              }
-            }
+          // Move the line segment
+          let newStartX = segment.startX + segment.vx * (deltaTime / 16);
+          let newStartY = segment.startY + segment.vy * (deltaTime / 16);
+          let newEndX = segment.endX + segment.vx * (deltaTime / 16);
+          let newEndY = segment.endY + segment.vy * (deltaTime / 16);
+          
+          // Rotate the line segment around its center
+          const centerX = (newStartX + newEndX) / 2;
+          const centerY = (newStartY + newEndY) / 2;
+          const newAngle = segment.angle + segment.vAngle * (deltaTime / 16);
+          
+          newStartX = centerX - Math.cos(newAngle) * segment.length/2;
+          newStartY = centerY - Math.sin(newAngle) * segment.length/2;
+          newEndX = centerX + Math.cos(newAngle) * segment.length/2;
+          newEndY = centerY + Math.sin(newAngle) * segment.length/2;
+          
+          // Bounce off walls
+          let newVx = segment.vx;
+          let newVy = segment.vy;
+          
+          if (newStartX < 0 || newEndX < 0) {
+            newVx = Math.abs(segment.vx);
+          } else if (newStartX > dimensions.width || newEndX > dimensions.width) {
+            newVx = -Math.abs(segment.vx);
           }
-        }
-        
-        return prevParticles.map(particle => {
-          // Handle particles that are part of a word
-          if (particle.isInWord && particle.targetWord && particle.targetIndex !== undefined) {
-            const letterSpacing = 20; // Space between letters
-            const wordParticles = prevParticles.filter(p => p.targetWord === particle.targetWord);
-            const isWordComplete = wordParticles.length === particle.targetWord.length;
+          
+          if (newStartY < 0 || newEndY < 0) {
+            newVy = Math.abs(segment.vy);
+          } else if (newStartY > dimensions.height || newEndY > dimensions.height) {
+            newVy = -Math.abs(segment.vy);
+          }
+          
+          // Slight random movement
+          if (Math.random() < 0.02) {
+            newVx += (Math.random() - 0.5) * 0.05;
+            newVy += (Math.random() - 0.5) * 0.05;
             
-            // Check if all particles for the word are in position
-            let allInPosition = true;
-            if (isWordComplete) {
-              for (const p of wordParticles) {
-                if (p.targetIndex !== undefined) {
-                  const targetX = Math.random() * (dimensions.width * 0.6) + (dimensions.width * 0.2);
-                  const targetY = Math.random() * (dimensions.height * 0.6) + (dimensions.height * 0.2);
-                  const wordCenterX = targetX - (particle.targetWord.length * letterSpacing) / 2;
-                  const wordCenterY = targetY;
-                  
-                  const particleTargetX = wordCenterX + (p.targetIndex * letterSpacing);
-                  const particleTargetY = wordCenterY;
-                  
-                  const dx = particleTargetX - p.x;
-                  const dy = particleTargetY - p.y;
-                  const distance = Math.sqrt(dx * dx + dy * dy);
-                  
-                  if (distance > 2) {
-                    allInPosition = false;
-                    break;
-                  }
-                }
-              }
-            }
-            
-            // If word is complete and all letters are in position
-            if (isWordComplete && allInPosition && !particle.wordFormed) {
-              // Record the formed word to display separately
-              const wordId = `word-${Date.now()}-${Math.random()}`; 
-              const wordCenterX = dimensions.width * 0.5 - (particle.targetWord.length * letterSpacing) / 2;
-              const wordCenterY = dimensions.height * 0.5;
-              
-              // Determine the reverse direction for the formed word
-              const avgVx = wordParticles.reduce((sum, p) => sum + (p.originalVx || 0), 0) / wordParticles.length;
-              const avgVy = wordParticles.reduce((sum, p) => sum + (p.originalVy || 0), 0) / wordParticles.length;
-              
-              newFormedWords[wordId] = {
-                x: wordCenterX,
-                y: wordCenterY,
-                word: particle.targetWord,
-                vx: -avgVx * 2, // Reverse direction and increase speed
-                vy: -avgVy * 2
-              };
-              
-              // Mark all particles in this word as formed
-              return {
-                ...particle,
-                wordFormed: true
-              };
-            }
-            
-            // Calculate target position for particles in the word
-            if (particle.targetIndex !== undefined) {
-              // Dynamically determine a position in the canvas for this word to form
-              // This ensures words don't always form in the same place
-              const targetX = Math.random() * (dimensions.width * 0.6) + (dimensions.width * 0.2);
-              const targetY = Math.random() * (dimensions.height * 0.6) + (dimensions.height * 0.2);
-              const wordCenterX = targetX - (particle.targetWord.length * letterSpacing) / 2;
-              const wordCenterY = targetY;
-              
-              const particleTargetX = wordCenterX + (particle.targetIndex * letterSpacing);
-              const particleTargetY = wordCenterY;
-              
-              const dx = particleTargetX - particle.x;
-              const dy = particleTargetY - particle.y;
-              
-              // Apply attraction forces
-              return {
-                ...particle,
-                vx: dx * 0.05,
-                vy: dy * 0.05,
-                x: particle.x + particle.vx * (deltaTime / 16),
-                y: particle.y + particle.vy * (deltaTime / 16)
-              };
+            // Limit speed
+            const speed = Math.sqrt(newVx * newVx + newVy * newVy);
+            if (speed > 0.8) {
+              newVx = (newVx / speed) * 0.8;
+              newVy = (newVy / speed) * 0.8;
             }
           }
           
-          // Release particles from words after a while
-          if (particle.wordFormed && Math.random() < 0.005) {
-            return {
-              ...particle,
-              isInWord: false,
-              targetWord: undefined,
-              targetIndex: undefined,
-              wordFormed: false,
-              vx: (Math.random() - 0.5) * 0.5,
-              vy: (Math.random() - 0.5) * 0.5,
-              letter: characters[Math.floor(Math.random() * characters.length)]
-            };
-          }
-          
-          // Regular floating particles
-          if (!particle.isInWord) {
-            let newX = particle.x + particle.vx * (deltaTime / 16);
-            let newY = particle.y + particle.vy * (deltaTime / 16);
-            
-            // Bounce off walls
-            let newVx = particle.vx;
-            let newVy = particle.vy;
-            
-            if (newX <= 0 || newX >= dimensions.width) {
-              newVx = -newVx;
-              newX = Math.max(0, Math.min(dimensions.width, newX));
-            }
-            
-            if (newY <= 0 || newY >= dimensions.height) {
-              newVy = -newVy;
-              newY = Math.max(0, Math.min(dimensions.height, newY));
-            }
-            
-            // Slight random movement
-            if (Math.random() < 0.03) {
-              newVx += (Math.random() - 0.5) * 0.1;
-              newVy += (Math.random() - 0.5) * 0.1;
-              
-              // Limit speed
-              const speed = Math.sqrt(newVx * newVx + newVy * newVy);
-              if (speed > 1) {
-                newVx = newVx / speed;
-                newVy = newVy / speed;
-              }
-            }
-            
-            return {
-              ...particle,
-              x: newX,
-              y: newY,
-              vx: newVx,
-              vy: newVy
-            };
-          }
-          
-          return particle;
+          return {
+            ...segment,
+            startX: newStartX,
+            startY: newStartY,
+            endX: newEndX,
+            endY: newEndY,
+            vx: newVx,
+            vy: newVy,
+            angle: newAngle
+          };
         });
       });
-      
-      // Update formed words state and animate them
-      if (Object.keys(newFormedWords).length !== Object.keys(formedWords).length) {
-        setFormedWords(newFormedWords);
-      } else {
-        // Animate existing formed words
-        const updatedFormedWords = {...newFormedWords};
-        Object.keys(formedWords).forEach(wordId => {
-          if (formedWords[wordId]) {
-            const word = formedWords[wordId];
-            
-            // Move the word in its reverse direction
-            let newX = word.x + word.vx * (deltaTime / 32);
-            let newY = word.y + word.vy * (deltaTime / 32);
-            
-            // Remove words that go off-screen
-            if (newX < -100 || newX > dimensions.width + 100 || 
-                newY < -100 || newY > dimensions.height + 100) {
-              delete updatedFormedWords[wordId];
-            } else {
-              updatedFormedWords[wordId] = {
-                ...word,
-                x: newX,
-                y: newY
-              };
-            }
-          }
-        });
-        
-        if (Object.keys(updatedFormedWords).length !== Object.keys(formedWords).length) {
-          setFormedWords(updatedFormedWords);
-        }
+
+      // Try to form geometric shapes
+      if (Math.random() < 0.01) {
+        formGeometricShape();
       }
+      
+      // Update existing shapes
+      updateShapes(deltaTime);
+      
+      // Try to form molecules
+      if (Math.random() < 0.01 && Object.keys(shapes).length >= 2) {
+        formMolecule();
+      }
+      
+      // Update existing molecules
+      updateMolecules(deltaTime);
       
       animationFrameRef.current = requestAnimationFrame(animate);
     };
@@ -364,7 +230,331 @@ const AnimatedLandingPage = () => {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [particles, dimensions, formedWords]);
+  }, [lineSegments, dimensions, shapes, molecules]);
+  
+  // Function to form geometric shapes from line segments
+  const formGeometricShape = () => {
+    // Find free line segments
+    const freeSegments = lineSegments.filter(segment => !segment.inShape);
+    
+    if (freeSegments.length < 3) return; // Need at least 3 segments for a triangle
+    
+    // Choose a random shape type
+    const shapeType = geometricShapes[Math.floor(Math.random() * geometricShapes.length)];
+    
+    if (freeSegments.length < shapeType.sides) return;
+    
+    // Choose random position for shape center
+    const centerX = Math.random() * (dimensions.width * 0.8) + (dimensions.width * 0.1);
+    const centerY = Math.random() * (dimensions.height * 0.8) + (dimensions.height * 0.1);
+    
+    // Choose random segments
+    const selectedSegmentIds = freeSegments
+      .sort(() => Math.random() - 0.5)
+      .slice(0, shapeType.sides)
+      .map(segment => segment.id);
+    
+    // Create a new shape
+    const shapeId = `shape-${Date.now()}-${Math.random()}`;
+    const newShape: GeometricShape = {
+      id: shapeId,
+      segments: selectedSegmentIds,
+      centerX,
+      centerY,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: (Math.random() - 0.5) * 0.3,
+      rotation: Math.random() * Math.PI * 2,
+      vRotation: (Math.random() - 0.5) * 0.02,
+      type: shapeType.name,
+      size: shapeType.sides * 15, // Base size on number of sides
+      inMolecule: false
+    };
+    
+    // Update the segments to be part of the shape
+    setLineSegments(prevSegments => {
+      return prevSegments.map(segment => {
+        if (selectedSegmentIds.includes(segment.id)) {
+          return {
+            ...segment,
+            inShape: true,
+            shapeId,
+            color: 'rgba(255, 255, 255, 0.8)'
+          };
+        }
+        return segment;
+      });
+    });
+    
+    // Add the new shape
+    setShapes(prevShapes => ({
+      ...prevShapes,
+      [shapeId]: newShape
+    }));
+  };
+  
+  // Update existing shapes (movement, rotation)
+  const updateShapes = (deltaTime: number) => {
+    const updatedShapes = {...shapes};
+    
+    Object.keys(updatedShapes).forEach(shapeId => {
+      const shape = updatedShapes[shapeId];
+      
+      // Skip shapes that are part of molecules
+      if (shape.inMolecule) return;
+      
+      // Update position
+      shape.centerX += shape.vx * (deltaTime / 16);
+      shape.centerY += shape.vy * (deltaTime / 16);
+      
+      // Bounce off walls
+      if (shape.centerX < shape.size || shape.centerX > dimensions.width - shape.size) {
+        shape.vx = -shape.vx;
+      }
+      if (shape.centerY < shape.size || shape.centerY > dimensions.height - shape.size) {
+        shape.vy = -shape.vy;
+      }
+      
+      // Update rotation
+      shape.rotation += shape.vRotation * (deltaTime / 16);
+      
+      // Position the segments around the center to form the shape
+      const angleStep = (Math.PI * 2) / shape.segments.length;
+      
+      shape.segments.forEach((segmentId, index) => {
+        const segmentIndex = lineSegments.findIndex(s => s.id === segmentId);
+        if (segmentIndex !== -1) {
+          const angle = shape.rotation + (index * angleStep);
+          const radius = shape.size / 2;
+          
+          const segment = lineSegments[segmentIndex];
+          const segmentLength = segment.length;
+          
+          // Calculate new position for the segment
+          const segmentCenterX = shape.centerX + Math.cos(angle) * radius;
+          const segmentCenterY = shape.centerY + Math.sin(angle) * radius;
+          
+          // Position the segment tangentially to the shape
+          const segmentAngle = angle + Math.PI/2; // Tangential to the radius
+          
+          const newSegment = {
+            ...segment,
+            startX: segmentCenterX - Math.cos(segmentAngle) * segmentLength/2,
+            startY: segmentCenterY - Math.sin(segmentAngle) * segmentLength/2,
+            endX: segmentCenterX + Math.cos(segmentAngle) * segmentLength/2,
+            endY: segmentCenterY + Math.sin(segmentAngle) * segmentLength/2,
+            angle: segmentAngle
+          };
+          
+          // Update the segment in the lineSegments array
+          setLineSegments(prev => {
+            const newSegments = [...prev];
+            newSegments[segmentIndex] = newSegment;
+            return newSegments;
+          });
+        }
+      });
+    });
+    
+    setShapes(updatedShapes);
+  };
+  
+  // Form molecules from shapes
+  const formMolecule = () => {
+    // Find free shapes
+    const freeShapes = Object.values(shapes).filter(shape => !shape.inMolecule);
+    
+    if (freeShapes.length < 2) return; // Need at least 2 shapes
+    
+    // Choose 2-3 random shapes
+    const numShapes = Math.min(2 + Math.floor(Math.random() * 2), freeShapes.length);
+    const selectedShapes = freeShapes
+      .sort(() => Math.random() - 0.5)
+      .slice(0, numShapes);
+    
+    // Calculate center position (average of selected shapes)
+    const centerX = selectedShapes.reduce((sum, shape) => sum + shape.centerX, 0) / selectedShapes.length;
+    const centerY = selectedShapes.reduce((sum, shape) => sum + shape.centerY, 0) / selectedShapes.length;
+    
+    // Calculate size based on component shapes
+    const size = selectedShapes.reduce((sum, shape) => sum + shape.size, 0) * 0.8;
+    
+    // Create a new molecule
+    const moleculeId = `molecule-${Date.now()}-${Math.random()}`;
+    const newMolecule: Molecule = {
+      id: moleculeId,
+      shapes: selectedShapes.map(shape => shape.id),
+      centerX,
+      centerY,
+      vx: (Math.random() - 0.5) * 0.2,
+      vy: (Math.random() - 0.5) * 0.2,
+      rotation: Math.random() * Math.PI * 2,
+      vRotation: (Math.random() - 0.5) * 0.01,
+      size,
+      age: 0,
+      fading: false
+    };
+    
+    // Update the shapes to be part of the molecule
+    const updatedShapes = {...shapes};
+    selectedShapes.forEach(shape => {
+      if (updatedShapes[shape.id]) {
+        updatedShapes[shape.id].inMolecule = true;
+        updatedShapes[shape.id].moleculeId = moleculeId;
+      }
+    });
+    
+    // Update line segments color for shapes in the molecule
+    setLineSegments(prev => {
+      return prev.map(segment => {
+        const shapeId = segment.shapeId;
+        if (shapeId && selectedShapes.some(shape => shape.id === shapeId)) {
+          return {
+            ...segment,
+            color: 'rgba(200, 200, 255, 0.9)' // Slightly blue for molecules
+          };
+        }
+        return segment;
+      });
+    });
+    
+    setShapes(updatedShapes);
+    
+    // Add the new molecule
+    setMolecules(prevMolecules => ({
+      ...prevMolecules,
+      [moleculeId]: newMolecule
+    }));
+  };
+  
+  // Update existing molecules
+  const updateMolecules = (deltaTime: number) => {
+    const updatedMolecules = {...molecules};
+    let moleculesChanged = false;
+    
+    Object.keys(updatedMolecules).forEach(moleculeId => {
+      const molecule = updatedMolecules[moleculeId];
+      
+      // Update age
+      molecule.age += deltaTime / 1000; // Convert to seconds
+      
+      // Check if molecule should start fading (after 5 seconds)
+      if (!molecule.fading && molecule.age > 5) {
+        molecule.fading = true;
+        
+        // Change color of line segments to red
+        setLineSegments(prev => {
+          return prev.map(segment => {
+            const shapeId = segment.shapeId;
+            if (shapeId && molecule.shapes.includes(shapeId)) {
+              return {
+                ...segment,
+                color: 'rgba(139, 0, 0, 0.9)' // Deep crimson red
+              };
+            }
+            return segment;
+          });
+        });
+      }
+      
+      // Remove molecule if it's been fading for more than 3 seconds
+      if (molecule.fading && molecule.age > 8) {
+        // Release shapes from the molecule
+        molecule.shapes.forEach(shapeId => {
+          if (shapes[shapeId]) {
+            // Release line segments from shapes
+            setLineSegments(prev => {
+              return prev.map(segment => {
+                if (segment.shapeId === shapeId) {
+                  // Reset segment to free floating
+                  const centerX = (segment.startX + segment.endX) / 2;
+                  const centerY = (segment.startY + segment.endY) / 2;
+                  const length = segment.length;
+                  const angle = Math.random() * Math.PI * 2;
+                  
+                  return {
+                    ...segment,
+                    startX: centerX - Math.cos(angle) * length/2,
+                    startY: centerY - Math.sin(angle) * length/2,
+                    endX: centerX + Math.cos(angle) * length/2,
+                    endY: centerY + Math.sin(angle) * length/2,
+                    vx: (Math.random() - 0.5) * 0.5,
+                    vy: (Math.random() - 0.5) * 0.5,
+                    angle: angle,
+                    vAngle: (Math.random() - 0.5) * 0.02,
+                    color: theme === 'dark' ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)',
+                    opacity: 0.6 + Math.random() * 0.4,
+                    inShape: false,
+                    shapeId: undefined
+                  };
+                }
+                return segment;
+              });
+            });
+            
+            // Also update the shapes state to remove the shapes
+            setShapes(prevShapes => {
+              const updated = {...prevShapes};
+              delete updated[shapeId];
+              return updated;
+            });
+          }
+        });
+        
+        // Delete the molecule
+        delete updatedMolecules[moleculeId];
+        moleculesChanged = true;
+        return;
+      }
+      
+      // Update position
+      molecule.centerX += molecule.vx * (deltaTime / 16);
+      molecule.centerY += molecule.vy * (deltaTime / 16);
+      
+      // Bounce off walls
+      if (molecule.centerX < molecule.size || molecule.centerX > dimensions.width - molecule.size) {
+        molecule.vx = -molecule.vx;
+      }
+      if (molecule.centerY < molecule.size || molecule.centerY > dimensions.height - molecule.size) {
+        molecule.vy = -molecule.vy;
+      }
+      
+      // Update rotation
+      molecule.rotation += molecule.vRotation * (deltaTime / 16);
+      
+      // Position the shapes around the center
+      const angleStep = (Math.PI * 2) / molecule.shapes.length;
+      
+      molecule.shapes.forEach((shapeId, index) => {
+        if (shapes[shapeId]) {
+          const shape = shapes[shapeId];
+          const angle = molecule.rotation + (index * angleStep);
+          const radius = molecule.size / 2;
+          
+          // Position the shape
+          const shapeX = molecule.centerX + Math.cos(angle) * radius;
+          const shapeY = molecule.centerY + Math.sin(angle) * radius;
+          
+          // Update the shape position in the shapes state
+          setShapes(prevShapes => {
+            const updated = {...prevShapes};
+            if (updated[shapeId]) {
+              updated[shapeId] = {
+                ...updated[shapeId],
+                centerX: shapeX,
+                centerY: shapeY,
+                rotation: angle + Math.PI/2 // Rotate shapes to face outward
+              };
+            }
+            return updated;
+          });
+        }
+      });
+    });
+    
+    if (moleculesChanged) {
+      setMolecules(updatedMolecules);
+    }
+  };
   
   // Cycle through phrases
   useEffect(() => {
@@ -375,84 +565,44 @@ const AnimatedLandingPage = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Remove formed words after some time
-  useEffect(() => {
-    const wordTimeouts: {[key: string]: NodeJS.Timeout} = {};
-    
-    Object.keys(formedWords).forEach(wordId => {
-      if (!wordTimeouts[wordId]) {
-        wordTimeouts[wordId] = setTimeout(() => {
-          setFormedWords(prev => {
-            const updated = {...prev};
-            delete updated[wordId];
-            return updated;
-          });
-        }, 8000 + Math.random() * 4000); // Display for 8-12 seconds
-      }
-    });
-    
-    return () => {
-      Object.values(wordTimeouts).forEach(timeout => clearTimeout(timeout));
-    };
-  }, [formedWords]);
-
   return (
     <div className="w-full min-h-screen bg-black relative overflow-hidden flex flex-col items-center justify-center">
-      {/* Particle Canvas */}
+      {/* Canvas for line segments and shapes */}
       <div 
         ref={canvasRef} 
         className="absolute inset-0 overflow-hidden"
       >
-        {particles.map(particle => (
+        {lineSegments.map(segment => (
           <motion.div
-            key={particle.id}
-            className={`absolute font-mono text-sm ${theme === 'dark' ? 'text-white' : 'text-black'} ${particle.isInWord ? 'font-bold' : 'opacity-50'}`}
+            key={segment.id}
+            className="absolute"
             style={{
-              left: particle.x,
-              top: particle.y,
               position: 'absolute',
+              left: 0,
+              top: 0,
+              width: '100%',
+              height: '100%',
+              pointerEvents: 'none'
             }}
             animate={{
-              x: particle.x,
-              y: particle.y,
+              x: 0,
+              y: 0,
               transition: { duration: 0.1, ease: 'linear' }
             }}
           >
-            {particle.letter}
-          </motion.div>
-        ))}
-        
-        {/* Formed Words */}
-        {Object.entries(formedWords).map(([wordId, { x, y, word }]) => (
-          <motion.div
-            key={wordId}
-            className="absolute font-mono text-xl font-bold tracking-widest"
-            style={{
-              left: x,
-              top: y,
-              color: '#8B0000',
-              opacity: 0
-            }}
-            animate={{
-              opacity: [0, 1, 1, 0.8],
-              scale: [0.8, 1.2, 1, 0.9],
-              x: x,
-              y: y
-            }}
-            transition={{
-              opacity: {
-                duration: 8,
-                times: [0, 0.1, 0.8, 1]
-              },
-              scale: {
-                duration: 8,
-                times: [0, 0.1, 0.3, 1]
-              },
-              x: { duration: 0.1 },
-              y: { duration: 0.1 }
-            }}
-          >
-            {word}
+            <motion.div
+              style={{
+                position: 'absolute',
+                width: `${Math.sqrt(Math.pow(segment.endX - segment.startX, 2) + Math.pow(segment.endY - segment.startY, 2))}px`,
+                height: '1.5px',
+                backgroundColor: segment.color,
+                opacity: segment.opacity,
+                transformOrigin: '0 0',
+                left: segment.startX,
+                top: segment.startY,
+                transform: `rotate(${Math.atan2(segment.endY - segment.startY, segment.endX - segment.startX)}rad)`,
+              }}
+            />
           </motion.div>
         ))}
       </div>
