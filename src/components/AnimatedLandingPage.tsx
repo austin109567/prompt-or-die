@@ -21,34 +21,11 @@ const enigmaticVerses = [
 const AnimatedLandingPage = () => {
   const { theme } = useTheme();
   const [currentVerseIndex, setCurrentVerseIndex] = useState(-1);
-  const [visibleVerses, setVisibleVerses] = useState<{id: string, text: string, position: {x: number, y: number}}[]>([]);
+  const [visibleVerses, setVisibleVerses] = useState<{id: string, text: string}[]>([]);
   const [showPromptOrDie, setShowPromptOrDie] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const nextVerseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
-  // Set up dimensions for positioning verses
-  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
-
-  useEffect(() => {
-    if (containerRef.current) {
-      const updateDimensions = () => {
-        if (containerRef.current) {
-          setDimensions({
-            width: containerRef.current.clientWidth,
-            height: containerRef.current.clientHeight,
-          });
-        }
-      };
-
-      updateDimensions();
-      window.addEventListener('resize', updateDimensions);
-      
-      return () => {
-        window.removeEventListener('resize', updateDimensions);
-      };
-    }
-  }, []);
 
   // Start showing verses after component mounts
   useEffect(() => {
@@ -74,15 +51,9 @@ const AnimatedLandingPage = () => {
     const nextIndex = (currentVerseIndex + 1) % enigmaticVerses.length;
     setCurrentVerseIndex(nextIndex);
     
-    // Generate a random position within the container, but keep a margin from edges
-    const margin = 100; // pixels from edge
-    const x = margin + Math.random() * (dimensions.width - 2 * margin);
-    const y = margin + Math.random() * (dimensions.height - 2 * margin);
-    
     const newVerse = {
       id: `verse-${Date.now()}`,
-      text: enigmaticVerses[nextIndex],
-      position: { x, y }
+      text: enigmaticVerses[nextIndex]
     };
     
     setVisibleVerses(prev => [...prev, newVerse]);
@@ -106,26 +77,24 @@ const AnimatedLandingPage = () => {
       {/* Subtle crimson radial gradient */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(139,0,0,0.1),transparent_70%)]"></div>
       
-      {/* Floating verses */}
-      <AnimatePresence>
-        {visibleVerses.map(verse => (
-          <motion.p
-            key={verse.id}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.7 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.7, ease: "easeInOut" }}
-            className="absolute font-serif italic text-white/70 text-sm md:text-base lg:text-lg leading-relaxed max-w-md text-center"
-            style={{
-              left: verse.position.x,
-              top: verse.position.y,
-              transform: 'translate(-50%, -50%)',
-            }}
-          >
-            {verse.text}
-          </motion.p>
-        ))}
-      </AnimatePresence>
+      {/* Central container for verses */}
+      <div className="relative z-10 flex flex-col items-center justify-center w-full max-w-2xl mx-auto px-4">
+        {/* Floating verses - now centered */}
+        <AnimatePresence>
+          {visibleVerses.map(verse => (
+            <motion.p
+              key={verse.id}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.7 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.7, ease: "easeInOut" }}
+              className="absolute font-serif italic text-white/70 text-sm md:text-base lg:text-lg leading-relaxed max-w-md text-center"
+            >
+              {verse.text}
+            </motion.p>
+          ))}
+        </AnimatePresence>
+      </div>
       
       {/* PROMPT OR DIE text */}
       <AnimatePresence>
