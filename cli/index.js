@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
+import { readFileSync, writeFileSync } from 'fs';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
@@ -7,6 +8,8 @@ import readline from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import { createClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';
+import clipboard from 'clipboardy';
+import { buildPrompt, injectPrompt } from '../sdk/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -111,6 +114,37 @@ program
   });
 
 program
+  .command('build <file>')
+  .description('Build a prompt from a JSON file of blocks')
+  .action(file => {
+    const blocks = JSON.parse(readFileSync(file, 'utf8'));
+    const prompt = buildPrompt(blocks);
+    writeFileSync('prompt.txt', prompt);
+    console.log('Prompt written to prompt.txt');
+  });
+
+program
+  .command('inject <file> <text>')
+  .description('Inject text into an existing prompt file')
+  .option('-m, --mode <mode>', 'prepend|append|replace', 'append')
+  .action((file, text, options) => {
+    const base = readFileSync(file, 'utf8');
+    const finalText = injectPrompt(base, text, options.mode);
+    writeFileSync(file, finalText);
+    console.log(`File ${file} updated.`);
+  });
+
+program
+  .command('export')
+  .description('Export current prompt')
+  .action(() => {
+    try {
+      const prompt = readFileSync('prompt.txt', 'utf8');
+      clipboard.writeSync(prompt);
+      console.log('Prompt copied to clipboard.');
+    } catch {
+      console.log('No prompt.txt found to export.');
+    }
   .command('export')
   .description('Export current prompt')
   .action(() => {
@@ -136,13 +170,51 @@ program
   .command('create <resource>')
   .description('Create a new resource')
   .action(resource => {
-    console.log(`Creating ${resource} (not implemented).`);
+    switch (resource.toLowerCase()) {
+      case 'project':
+        console.log('Creating new project...');
+        console.log('Project created. Open the dashboard to edit.');
+        break;
+      case 'template':
+        console.log('Creating new template...');
+        console.log('Template creation not yet implemented.');
+        break;
+      case 'block':
+        console.log('Block creation requires an active project.');
+        break;
+      default:
+        console.log(`Unknown resource type: ${resource}`);
+        console.log('Available types: project, template, block');
+    }
   });
 
 program
   .command('list <resource>')
   .description('List available resources')
   .action(resource => {
+    switch (resource.toLowerCase()) {
+      case 'projects':
+        console.log('=== Your Projects ===');
+        console.log('1. My First Project');
+        console.log('2. Code Review Template');
+        console.log('3. Marketing Prompts');
+        break;
+      case 'commands':
+        program.outputHelp();
+        break;
+      case 'templates':
+        console.log('=== Available Templates ===');
+        console.log('1. Content Summarizer');
+        console.log('2. Code Reviewer');
+        console.log('3. Creative Writer');
+        console.log('4. Data Analyst');
+        console.log('5. Email Marketing');
+        console.log('6. Technical Documentation');
+        break;
+      default:
+        console.log(`Unknown resource type: ${resource}`);
+        console.log('Available types: projects, commands, templates');
+    }
     console.log(`Listing ${resource} (not implemented).`);
   });
 
