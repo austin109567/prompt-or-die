@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
 import { readFileSync, writeFileSync } from 'fs';
+import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import readline from 'node:readline/promises';
@@ -144,6 +145,10 @@ program
     } catch {
       console.log('No prompt.txt found to export.');
     }
+  .command('export')
+  .description('Export current prompt')
+  .action(() => {
+    console.log('Prompt exported (not implemented).');
   });
 
 program
@@ -210,6 +215,7 @@ program
         console.log(`Unknown resource type: ${resource}`);
         console.log('Available types: projects, commands, templates');
     }
+    console.log(`Listing ${resource} (not implemented).`);
   });
 
 program.parse(process.argv);
