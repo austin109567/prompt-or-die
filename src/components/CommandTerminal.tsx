@@ -81,7 +81,7 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
     const initialHistory: PriceHistory[] = [];
     
     for (let i = maxHistoryPoints - 1; i >= 0; i--) {
-      const time = new Date(now.getTime() - (i * 5 * 60 * 1000)); // 5 minute intervals
+      const time = new Date(now.getTime() - (i * 7 * 60 * 1000)); // 7 minute intervals
       const basePrice = 2.47;
       // Create some variation to make the chart look more realistic
       const randomVariation = (Math.random() - 0.5) * 0.4; 
@@ -122,68 +122,23 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
       }
       
       const range = maxPrice - minPrice;
+      const barWidth = canvas.width / priceHistory.length * 0.8; // 80% of the available width
+      const barSpacing = canvas.width / priceHistory.length * 0.2; // 20% spacing
       
-      // Draw the chart
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      
-      const positiveChange = tokenData.change24h >= 0;
-      
-      // Gradient for the line
-      const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-      gradient.addColorStop(0, positiveChange ? 'rgba(0, 255, 0, 0.8)' : 'rgba(255, 0, 0, 0.8)');
-      gradient.addColorStop(1, 'rgba(139, 0, 0, 0.3)');
-      ctx.strokeStyle = positiveChange ? 'rgba(0, 255, 0, 0.8)' : 'rgba(255, 0, 0, 0.8)';
-      
-      // Create gradient for area under the curve
-      const fillGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-      fillGradient.addColorStop(0, positiveChange ? 'rgba(0, 255, 0, 0.1)' : 'rgba(255, 0, 0, 0.1)');
-      fillGradient.addColorStop(1, 'rgba(139, 0, 0, 0.05)');
-      
-      // Starting point
-      const stepX = canvas.width / (priceHistory.length - 1);
-      const getY = (price: number) => canvas.height - ((price - minPrice) / range * canvas.height);
-      
-      ctx.moveTo(0, getY(priceHistory[0].price));
-      
-      // Draw lines between points
+      // Draw the bar chart
       priceHistory.forEach((point, i) => {
-        if (i === 0) return; // Skip the first point as we've already moved to it
-        ctx.lineTo(i * stepX, getY(point.price));
+        const positiveChange = i > 0 ? point.price >= priceHistory[i-1].price : tokenData.change24h >= 0;
+        const barColor = positiveChange ? 'rgba(0, 255, 0, 0.8)' : 'rgba(255, 0, 0, 0.8)';
+        
+        // Calculate bar position and height
+        const x = i * (barWidth + barSpacing);
+        const barHeight = ((point.price - minPrice) / range) * canvas.height;
+        const y = canvas.height - barHeight;
+        
+        // Draw the bar
+        ctx.fillStyle = barColor;
+        ctx.fillRect(x, y, barWidth, barHeight);
       });
-      
-      // Stroke the line
-      ctx.stroke();
-      
-      // Fill the area under the curve
-      ctx.lineTo(canvas.width, canvas.height);
-      ctx.lineTo(0, canvas.height);
-      ctx.closePath();
-      ctx.fillStyle = fillGradient;
-      ctx.fill();
-      
-      // Add grid lines
-      ctx.beginPath();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-      ctx.lineWidth = 0.5;
-      
-      // Horizontal grid lines
-      const gridLines = 5;
-      for (let i = 0; i <= gridLines; i++) {
-        const y = (canvas.height / gridLines) * i;
-        ctx.moveTo(0, y);
-        ctx.lineTo(canvas.width, y);
-      }
-      
-      // Vertical grid lines
-      const verticalLines = 6;
-      for (let i = 0; i <= verticalLines; i++) {
-        const x = (canvas.width / verticalLines) * i;
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, canvas.height);
-      }
-      
-      ctx.stroke();
     };
     
     drawChart();
@@ -220,7 +175,7 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
         }
         return updated;
       });
-    }, 5000);
+    }, 7000); // Update every 7 seconds
     
     return () => clearInterval(interval);
   }, [isOpen, tokenData]);
@@ -1005,7 +960,7 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
           className="terminal-window flex flex-col h-full w-full rounded-lg bg-black overflow-hidden font-mono relative"
         >
           {/* Price chart background */}
-          <div className="absolute inset-0 z-0 opacity-20">
+          <div className="absolute inset-0 z-0">
             <canvas 
               ref={chartCanvasRef}
               width="800" 
@@ -1048,7 +1003,7 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
           {/* Terminal output area */}
           <div 
             ref={terminalRef}
-            className="terminal-output flex-1 p-4 overflow-auto bg-black text-white text-sm leading-relaxed scrollbar-thin scrollbar-thumb-[#8B0000]/20 scrollbar-track-transparent relative z-10"
+            className="terminal-output flex-1 p-4 overflow-auto bg-black/75 text-white text-sm leading-relaxed scrollbar-thin scrollbar-thumb-[#8B0000]/20 scrollbar-track-transparent relative z-10"
           >
             {outputLines.map((line, index) => (
               <div key={index} className="terminal-line">
