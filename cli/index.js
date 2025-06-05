@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
-import { readFileSync, writeFileSync } from 'fs';
-import { readFileSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import readline from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
+import passwordPrompt from '@inquirer/password';
 import { createClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';
 import clipboard from 'clipboardy';
@@ -22,6 +22,7 @@ const supabase = supabaseUrl && supabaseAnonKey
   : null;
 
 const openaiKey = process.env.OPENAI_API_KEY;
+const defaultModel = process.env.OPENAI_MODEL || 'gpt-4o';
 const openai = openaiKey ? new OpenAI({ apiKey: openaiKey }) : null;
 
 const program = new Command();
@@ -41,8 +42,8 @@ program
 
     const rl = readline.createInterface({ input, output });
     const email = await rl.question('Email: ');
-    const password = await rl.question('Password: ');
     rl.close();
+    const password = await passwordPrompt({ message: 'Password:' });
 
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
@@ -102,36 +103,81 @@ program
     const prompt = await rl.question('Enter prompt: ');
     rl.close();
 
+    const model = defaultModel;
     try {
       const resp = await openai.chat.completions.create({
-        model: 'gpt-4o',
+        model,
         messages: [{ role: 'user', content: prompt }]
       });
       console.log(resp.choices[0].message.content);
     } catch (err) {
-      console.error('Generation failed:', err.message || err);
+      if (err?.status === 429) {
+        console.error('Rate limit reached. Retrying in 10s...');
+        await new Promise(r => setTimeout(r, 10000));
+        try {
+          const resp = await openai.chat.completions.create({
+            model,
+            messages: [{ role: 'user', content: prompt }]
+          });
+          console.log(resp.choices[0].message.content);
+        } catch (e) {
+          console.error('Generation failed after retry:', e.message || e);
+        }
+      } else if (/model/i.test(err?.message || '') && model !== 'gpt-3.5-turbo') {
+        console.log(`Model ${model} not available, falling back to gpt-3.5-turbo`);
+        try {
+          const resp = await openai.chat.completions.create({
+            model: 'gpt-3.5-turbo',
+            messages: [{ role: 'user', content: prompt }]
+          });
+          console.log(resp.choices[0].message.content);
+        } catch (e) {
+          console.error('Generation failed:', e.message || e);
+        }
+      } else {
+        console.error('Generation failed:', err.message || err);
+      }
     }
   });
 
 program
   .command('build <file>')
   .description('Build a prompt from a JSON file of blocks')
-  .action(file => {
-    const blocks = JSON.parse(readFileSync(file, 'utf8'));
-    const prompt = buildPrompt(blocks);
-    writeFileSync('prompt.txt', prompt);
-    console.log('Prompt written to prompt.txt');
+  .option('-o, --output <out>', 'Output file', 'prompt.txt')
+  .action((file, options) => {
+    try {
+      const data = readFileSync(file, 'utf8');
+      const blocks = JSON.parse(data);
+      const prompt = buildPrompt(blocks);
+      writeFileSync(options.output, prompt);
+      console.log(`Prompt written to ${options.output}`);
+    } catch (err) {
+      console.error('Failed to build prompt:', err.message || err);
+    }
   });
 
 program
   .command('inject <file> <text>')
   .description('Inject text into an existing prompt file')
   .option('-m, --mode <mode>', 'prepend|append|replace', 'append')
-  .action((file, text, options) => {
-    const base = readFileSync(file, 'utf8');
-    const finalText = injectPrompt(base, text, options.mode);
-    writeFileSync(file, finalText);
-    console.log(`File ${file} updated.`);
+  .action(async (file, text, options) => {
+    try {
+      const base = readFileSync(file, 'utf8');
+      if (existsSync(file)) {
+        const rl = readline.createInterface({ input, output });
+        const ans = (await rl.question(`Overwrite ${file}? (y/N) `)).trim().toLowerCase();
+        rl.close();
+        if (ans !== 'y') {
+          console.log('Aborted.');
+          return;
+        }
+      }
+      const finalText = injectPrompt(base, text, options.mode);
+      writeFileSync(file, finalText);
+      console.log(`File ${file} updated.`);
+    } catch (err) {
+      console.error('Failed to inject text:', err.message || err);
+    }
   });
 
 program
@@ -145,10 +191,6 @@ program
     } catch {
       console.log('No prompt.txt found to export.');
     }
-  .command('export')
-  .description('Export current prompt')
-  .action(() => {
-    console.log('Prompt exported (not implemented).');
   });
 
 program

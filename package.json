@@ -46,6 +46,7 @@
     "clipboardy": "^4.0.0",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
+    "@inquirer/password": "^4.0.15",
     "commander": "^14.0.0",
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.3.0",
@@ -91,6 +92,9 @@
     "pad": "cli/index.js"
   },
   "exports": {
-    "./sdk": "./sdk/index.js"
+    "./sdk": {
+      "import": "./sdk/index.js",
+      "types": "./sdk/index.d.ts"
+    }
   }
 }
