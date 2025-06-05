@@ -1,323 +1,493 @@
 import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '@/hooks/use-theme';
-import { Button } from '@/components/ui/button';
-import { Link } from 'react-router-dom';
 
-// Ancient, mystical verses that will appear on screen
-const enigmaticVerses = [
-  "In the beginning was the Prompt, and the Prompt was with the Machine.",
-  "Those who control the words, control the worlds that might be.",
-  "Ask with precision, for in ambiguity lies deception.",
-  "Words are the key, structure is the lock, knowledge is the door.",
-  "By the power of syntax, let understanding flow forth.",
-  "Speak to the void with clarity, and the void shall answer in kind.",
-  "Through patterns we command, through patterns we create.",
-  "The sacred algorithm awaits the properly formed incantation.",
-  "Not by force, but by instruction shall we shape what is to come.",
-  "From chaos, through words, into order. This is the way.",
-  "The circle is drawn. The symbols arranged. The prompt is spoken.",
-  "As it was written, so shall it be rendered.",
+// Define the quotes that will cycle through
+const enigmaticPhrases = [
+  "The prompt is the key. The key is the prompt.",
+  "Speak to the void. The void will answer.",
+  "Those who control the prompt control reality.",
+  "Ascend through words. Transcend through meaning.",
+  "In darkness, find enlightenment. In prompts, find power.",
+  "We prompt. Therefore we live.",
+  "The path to knowledge is written in code.",
+  "A.I. is the mirror, the prompt is the reflection."
 ];
 
-interface VerseProps {
+// The characters we'll use for the floating animation
+const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+// Expanded list of words
+const words = [
+  'PROMPT', 'CODE', 'AI', 'VOID', 'CHAOS', 'ORDER', 'SYSTEM', 'WHISPER',
+  'CRAFT', 'BUILD', 'DREAM', 'THINK', 'CREATE', 'DESIGN', 'WRITE', 'LEARN',
+  'EVOLVE', 'FUTURE', 'MIND', 'NEURAL', 'DIGITAL', 'VIRTUAL', 'QUANTUM', 'VISION',
+  'SYNTAX', 'PATTERN', 'LOGIC', 'WISDOM', 'KNOWLEDGE', 'INSIGHT', 'SPARK', 'FLOW'
+];
+
+interface Particle {
   id: string;
-  text: string;
-  position: { x: number; y: number };
-  duration: number;
-  delay: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  letter: string;
+  targetWord?: string;
+  targetIndex?: number;
+  isInWord: boolean;
+  wordFormed: boolean;
 }
 
 const AnimatedLandingPage = () => {
   const { theme } = useTheme();
-  const [visibleVerses, setVisibleVerses] = useState<VerseProps[]>([]);
-  const [showPromptOrDie, setShowPromptOrDie] = useState(false);
-  const [showButtons, setShowButtons] = useState(false);
-  const [showTypingAnimation, setShowTypingAnimation] = useState(false);
-  const [typedText, setTypedText] = useState("");
-  const containerRef = useRef<HTMLDivElement>(null);
-  const timeoutsRef = useRef<NodeJS.Timeout[]>([]);
-  const versesUsedRef = useRef<Set<number>>(new Set());
-  const finalText = "Prompt or Die";
-  const typingSpeed = 120; // ms per character
+  const [currentPhrase, setCurrentPhrase] = useState(0);
+  const [particles, setParticles] = useState<Particle[]>([]);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const mousePosition = useRef({ x: 0, y: 0 });
+  const [mouseActive, setMouseActive] = useState(false);
+  const [formedWords, setFormedWords] = useState<{[key: string]: {x: number, y: number, word: string}}>({}); 
 
-  // Calculate a random position within the container
-  const getRandomPosition = () => {
-    if (!containerRef.current) return { x: 0, y: 0 };
-    
-    const width = containerRef.current.clientWidth;
-    const height = containerRef.current.clientHeight;
-    
-    // Keep verses within a reasonable area, not too close to edges
-    const padding = 100;
-    return {
-      x: Math.random() * (width - 2 * padding) + padding - width/2,  // Centered around middle
-      y: Math.random() * (height - 2 * padding) + padding - height/2,  // Centered around middle
-    };
-  };
-  
-  // Get a random verse that hasn't been used recently
-  const getRandomVerseIndex = () => {
-    // If all verses have been used, reset the tracking
-    if (versesUsedRef.current.size >= enigmaticVerses.length - 1) {
-      versesUsedRef.current.clear();
-    }
-    
-    let index;
-    do {
-      index = Math.floor(Math.random() * enigmaticVerses.length);
-    } while (versesUsedRef.current.has(index));
-    
-    versesUsedRef.current.add(index);
-    return index;
-  };
-
-  // Create and schedule a new verse to appear
-  const addVerse = () => {
-    if (showTypingAnimation) return; // Don't add more verses after typing animation starts
-    
-    // Random timing parameters
-    const displayDuration = 7000 + Math.random() * 5000; // 7-12 seconds on screen
-    const fadeInOutDuration = 1500 + Math.random() * 1000; // 1.5-2.5 seconds for fade
-    
-    const verseIndex = getRandomVerseIndex();
-    const newVerse: VerseProps = {
-      id: `verse-${Date.now()}-${Math.random()}`,
-      text: enigmaticVerses[verseIndex],
-      position: getRandomPosition(),
-      duration: fadeInOutDuration,
-      delay: 0,
-    };
-    
-    setVisibleVerses(prev => [...prev, newVerse]);
-    
-    // Schedule removal of this verse
-    const removeTimeout = setTimeout(() => {
-      if (!showTypingAnimation) {
-        setVisibleVerses(prev => prev.filter(v => v.id !== newVerse.id));
-      }
-    }, displayDuration);
-    
-    timeoutsRef.current.push(removeTimeout);
-    
-    // Schedule the next verse with some randomized delay
-    if (!showTypingAnimation) {
-      const nextVerseDelay = 3000 + Math.random() * 4000; // 3-7 seconds between verses
-      const nextVerseTimeout = setTimeout(() => {
-        if (!showTypingAnimation) addVerse();
-      }, nextVerseDelay);
-      timeoutsRef.current.push(nextVerseTimeout);
-    }
-  };
-
-  // Handle typing animation
-  const startTypingAnimation = () => {
-    setShowTypingAnimation(true);
-    setVisibleVerses([]);
-    setShowPromptOrDie(false);
-    setTypedText("");
-    
-    // Type each character one by one
-    let charIndex = 0;
-    const typeNextChar = () => {
-      if (charIndex <= finalText.length) {
-        setTypedText(finalText.slice(0, charIndex));
-        charIndex++;
-        
-        if (charIndex <= finalText.length) {
-          const randomVariation = Math.random() * 50; // Add a bit of randomness to typing speed
-          const timeout = setTimeout(typeNextChar, typingSpeed + randomVariation);
-          timeoutsRef.current.push(timeout);
-        }
-      }
-    };
-    
-    typeNextChar();
-  };
-
-  // Initialize the verse display sequence
+  // Track mouse movement for interactive effects
   useEffect(() => {
-    // Add first few verses with staggered timing
-    const initialDelays = [1000, 4000, 8000];
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!canvasRef.current) return;
+      
+      mousePosition.current = { x: e.clientX, y: e.clientY };
+      
+      // Create a new star element
+      if (mouseActive) {
+        const star = document.createElement('div');
+        star.className = 'absolute w-1 h-1 bg-primary/40 rounded-full';
+        
+        // Position at mouse cursor
+        star.style.left = `${e.clientX}px`;
+        star.style.top = `${e.clientY}px`;
+        
+        // Random size
+        const size = Math.random() * 2 + 1;
+        star.style.width = `${size}px`;
+        star.style.height = `${size}px`;
+        
+        // Append to container
+        canvasRef.current.appendChild(star);
+        
+        // Animate and remove
+        setTimeout(() => {
+          star.style.transition = 'all 1s ease';
+          star.style.opacity = '0';
+          star.style.transform = `translate(${(Math.random() - 0.5) * 80}px, ${(Math.random() - 0.5) * 80}px)`;
+        }, 10);
+        
+        setTimeout(() => {
+          if (canvasRef.current && canvasRef.current.contains(star)) {
+            canvasRef.current.removeChild(star);
+          }
+        }, 1000);
+      }
+    };
     
-    initialDelays.forEach((delay) => {
-      const timeout = setTimeout(() => {
-        addVerse();
-      }, delay);
-      timeoutsRef.current.push(timeout);
+    // Add event listeners
+    window.addEventListener('mousemove', handleMouseMove);
+    
+    // Set mouse active after a delay
+    const timeout = setTimeout(() => {
+      setMouseActive(true);
+    }, 3000);
+    
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      clearTimeout(timeout);
+    };
+  }, [mouseActive]);
+
+  // Initialize particles after dimensions are set
+  useEffect(() => {
+    if (!canvasRef.current) return;
+    
+    const updateDimensions = () => {
+      if (!canvasRef.current) return;
+      
+      const width = canvasRef.current.clientWidth;
+      const height = canvasRef.current.clientHeight;
+      
+      // Generate random particles
+      const initialParticles: Particle[] = Array.from({ length: 100 }).map((_, i) => ({
+        id: `particle-${i}`,
+        x: Math.random() * width,
+        y: Math.random() * height,
+        vx: (Math.random() - 0.5) * 0.5,
+        vy: (Math.random() - 0.5) * 0.5,
+        letter: characters[Math.floor(Math.random() * characters.length)],
+        isInWord: false,
+        wordFormed: false
+      }));
+
+      setParticles(initialParticles);
+    };
+
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    
+    return () => {
+      window.removeEventListener('resize', updateDimensions);
+    };
+  }, []);
+
+  // Function to check if a letter can start forming a word
+  const canFormWord = (letter: string) => {
+    // Check if the letter is a potential starting point for any of our words
+    return words.some(word => word.startsWith(letter));
+  };
+
+  // Function to find potential words that can be formed with the given prefix
+  const findPotentialWords = (prefix: string) => {
+    return words.filter(word => word.startsWith(prefix));
+  };
+
+  // Animation loop for particles
+  useEffect(() => {
+    if (particles.length === 0 || !canvasRef.current) return;
+
+    const animate = (timestamp: number) => {
+      if (!canvasRef.current) return;
+      
+      const width = canvasRef.current.clientWidth;
+      const height = canvasRef.current.clientHeight;
+      
+      // Keep track of formed words to display them separately
+      const newFormedWords: {[key: string]: {x: number, y: number, word: string}} = {...formedWords};
+      
+      setParticles(prevParticles => {
+        // Occasionally try to form a word
+        if (Math.random() < 0.005) {
+          // Find particles that are not in a word and can potentially start a word
+          const availableParticles = prevParticles.filter(p => !p.isInWord && canFormWord(p.letter));
+          
+          if (availableParticles.length > 0) {
+            // Pick a random particle as the word starter
+            const starterParticle = availableParticles[Math.floor(Math.random() * availableParticles.length)];
+            
+            // Find potential words that start with this letter
+            const potentialWords = findPotentialWords(starterParticle.letter);
+            
+            if (potentialWords.length > 0) {
+              // Choose a random word from potential words
+              const targetWord = potentialWords[Math.floor(Math.random() * potentialWords.length)];
+              
+              if (targetWord) {
+                // Find enough free particles to form the rest of the word
+                const remainingLettersNeeded = targetWord.length - 1; // -1 because we already have the starter
+                const freeParticles = prevParticles.filter(p => p.id !== starterParticle.id && !p.isInWord)
+                                                  .sort(() => Math.random() - 0.5)
+                                                  .slice(0, remainingLettersNeeded);
+                
+                if (freeParticles.length === remainingLettersNeeded) {
+                  // Create a new array with particles assigned to the word
+                  const updatedParticles = [...prevParticles];
+                  const starterIndex = updatedParticles.findIndex(p => p.id === starterParticle.id);
+                  
+                  // Position the words in a reasonable area of the screen
+                  const wordX = Math.random() * (width - 200) + 100; 
+                  const wordY = Math.random() * (height - 200) + 100;
+                  
+                  // Update the starter particle
+                  updatedParticles[starterIndex] = {
+                    ...updatedParticles[starterIndex],
+                    targetWord,
+                    targetIndex: 0,
+                    isInWord: true
+                  };
+                  
+                  // Assign the remaining letters
+                  for (let i = 0; i < freeParticles.length; i++) {
+                    const particleIndex = updatedParticles.findIndex(p => p.id === freeParticles[i].id);
+                    if (particleIndex !== -1) {
+                      updatedParticles[particleIndex] = {
+                        ...updatedParticles[particleIndex],
+                        letter: targetWord[i + 1],  // +1 because we already have the first letter
+                        targetWord,
+                        targetIndex: i + 1,
+                        isInWord: true
+                      };
+                    }
+                  }
+                  
+                  return updatedParticles;
+                }
+              }
+            }
+          }
+        }
+        
+        return prevParticles.map(particle => {
+          // Handle particles that are part of a word
+          if (particle.isInWord && particle.targetWord && particle.targetIndex !== undefined) {
+            const letterSpacing = 20; // Space between letters
+            const wordParticles = prevParticles.filter(p => p.targetWord === particle.targetWord);
+            const isWordComplete = wordParticles.length === particle.targetWord.length;
+            
+            // Check if all particles for the word are in position
+            let allInPosition = true;
+            if (isWordComplete) {
+              for (const p of wordParticles) {
+                if (p.targetIndex !== undefined) {
+                  const centerX = width / 2 - (particle.targetWord.length * letterSpacing) / 2;
+                  const targetX = centerX + (p.targetIndex * letterSpacing);
+                  const targetY = height / 2;
+                  
+                  const dx = targetX - p.x;
+                  const dy = targetY - p.y;
+                  const distance = Math.sqrt(dx * dx + dy * dy);
+                  
+                  if (distance > 2) {
+                    allInPosition = false;
+                    break;
+                  }
+                }
+              }
+            }
+            
+            // If word is complete and all letters are in position
+            if (isWordComplete && allInPosition && !particle.wordFormed) {
+              // Record the formed word to display separately
+              const wordId = `word-${Date.now()}-${Math.random()}`; 
+              const centerX = width / 2 - (particle.targetWord.length * letterSpacing) / 2;
+              const centerY = height / 2;
+              
+              newFormedWords[wordId] = {
+                x: centerX,
+                y: centerY,
+                word: particle.targetWord
+              };
+              
+              // Mark all particles in this word as formed
+              return {
+                ...particle,
+                wordFormed: true
+              };
+            }
+            
+            // Calculate target position for particles in the word
+            if (particle.targetIndex !== undefined) {
+              const centerX = width / 2 - (particle.targetWord.length * letterSpacing) / 2;
+              const targetX = centerX + (particle.targetIndex * letterSpacing);
+              const targetY = height / 2;
+              
+              const dx = targetX - particle.x;
+              const dy = targetY - particle.y;
+              
+              // Apply attraction forces
+              return {
+                ...particle,
+                vx: dx * 0.05,
+                vy: dy * 0.05,
+                x: particle.x + particle.vx,
+                y: particle.y + particle.vy
+              };
+            }
+          }
+          
+          // Release particles from words after a while
+          if (particle.wordFormed && Math.random() < 0.005) {
+            return {
+              ...particle,
+              isInWord: false,
+              targetWord: undefined,
+              targetIndex: undefined,
+              wordFormed: false,
+              vx: (Math.random() - 0.5) * 0.5,
+              vy: (Math.random() - 0.5) * 0.5,
+              letter: characters[Math.floor(Math.random() * characters.length)]
+            };
+          }
+          
+          // Regular floating particles
+          if (!particle.isInWord) {
+            let newX = particle.x + particle.vx;
+            let newY = particle.y + particle.vy;
+            
+            // Bounce off walls
+            let newVx = particle.vx;
+            let newVy = particle.vy;
+            
+            if (newX <= 0 || newX >= width) {
+              newVx = -newVx;
+              newX = Math.max(0, Math.min(width, newX));
+            }
+            
+            if (newY <= 0 || newY >= height) {
+              newVy = -newVy;
+              newY = Math.max(0, Math.min(height, newY));
+            }
+            
+            // Slight random movement
+            if (Math.random() < 0.03) {
+              newVx += (Math.random() - 0.5) * 0.1;
+              newVy += (Math.random() - 0.5) * 0.1;
+              
+              // Limit speed
+              const speed = Math.sqrt(newVx * newVx + newVy * newVy);
+              if (speed > 1) {
+                newVx = newVx / speed;
+                newVy = newVy / speed;
+              }
+            }
+            
+            return {
+              ...particle,
+              x: newX,
+              y: newY,
+              vx: newVx,
+              vy: newVy
+            };
+          }
+          
+          return particle;
+        });
+      });
+      
+      // Update formed words state if changed
+      if (Object.keys(newFormedWords).length !== Object.keys(formedWords).length) {
+        setFormedWords(newFormedWords);
+      }
+      
+      requestAnimationFrame(animate);
+    };
+
+    const animationId = requestAnimationFrame(animate);
+    
+    return () => {
+      cancelAnimationFrame(animationId);
+    };
+  }, [particles, formedWords]);
+  
+  // Cycle through phrases
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentPhrase((prev) => (prev + 1) % enigmaticPhrases.length);
+    }, 5000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  // Remove formed words after some time
+  useEffect(() => {
+    const wordTimeouts: {[key: string]: NodeJS.Timeout} = {};
+    
+    Object.keys(formedWords).forEach(wordId => {
+      if (!wordTimeouts[wordId]) {
+        wordTimeouts[wordId] = setTimeout(() => {
+          setFormedWords(prev => {
+            const updated = {...prev};
+            delete updated[wordId];
+            return updated;
+          });
+        }, 5000 + Math.random() * 3000); // Display for 5-8 seconds
+      }
     });
     
-    // Show login/signup buttons after 5 seconds
-    const buttonsDelay = setTimeout(() => {
-      setShowButtons(true);
-    }, 5000);
-    timeoutsRef.current.push(buttonsDelay);
-    
-    // Start typing animation after 10 seconds
-    const typingDelay = setTimeout(() => {
-      startTypingAnimation();
-    }, 10000);
-    timeoutsRef.current.push(typingDelay);
-    
-    // Cleanup timeouts on unmount
     return () => {
-      timeoutsRef.current.forEach(timeout => clearTimeout(timeout));
+      Object.values(wordTimeouts).forEach(timeout => clearTimeout(timeout));
     };
-  }, []);
-  
-  // Update container dimensions on resize
-  useEffect(() => {
-    const handleResize = () => {
-      // This will cause a re-render, updating position calculations
-      setVisibleVerses(prev => [...prev]);
-    };
-    
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, [formedWords]);
 
   return (
-    <div 
-      ref={containerRef} 
-      className="w-full min-h-screen bg-black relative overflow-hidden flex items-center justify-center"
-    >
-      {/* Subtle crimson radial gradient */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(139,0,0,0.1),transparent_70%)]"></div>
-      
-      <AnimatePresence>
-        {!showTypingAnimation && (
-          <>
-            {/* Floating verses positioned across the screen */}
-            {visibleVerses.map(verse => (
-              <motion.p
-                key={verse.id}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 0.7 }}
-                exit={{ opacity: 0 }}
-                transition={{ 
-                  duration: verse.duration / 1000, 
-                  ease: "easeInOut"
-                }}
-                className="absolute font-serif italic text-white/70 text-sm md:text-base lg:text-lg leading-relaxed max-w-xs text-center pointer-events-none z-10"
-                style={{
-                  transform: `translate(${verse.position.x}px, ${verse.position.y}px)`,
-                }}
-              >
-                {verse.text}
-              </motion.p>
-            ))}
-            
-            {/* Login/Signup buttons */}
-            {showButtons && (
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.5, ease: "easeOut" }}
-                className="absolute bottom-20 z-30 flex flex-col sm:flex-row gap-4"
-              >
-                <Button 
-                  asChild
-                  className="bg-[#8B0000]/90 hover:bg-[#8B0000] text-white border border-[#8B0000]/60 px-6 py-6 text-lg h-auto shadow-[0_0_15px_rgba(139,0,0,0.3)]"
-                >
-                  <Link to="/auth">Enter The Circle</Link>
-                </Button>
-                <Button 
-                  asChild
-                  variant="outline" 
-                  className="border-[#8B0000]/40 text-[#8B0000] hover:bg-[#8B0000]/10 px-6 py-6 text-lg h-auto"
-                >
-                  <Link to="/auth?tab=register">Join The Order</Link>
-                </Button>
-              </motion.div>
-            )}
-            
-            {/* PROMPT OR DIE subtle text */}
-            {showPromptOrDie && !showTypingAnimation && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 0.15 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 2, ease: "easeInOut", delay: 1 }}
-                className="absolute bottom-10 right-10 z-10"
-              >
-                <motion.div 
-                  className="text-[#1D1D1D] font-bold text-4xl md:text-6xl lg:text-7xl"
-                  animate={{
-                    textShadow: [
-                      '0 0 5px rgba(139,0,0,0.2)',
-                      '0 0 15px rgba(139,0,0,0.3)',
-                      '0 0 5px rgba(139,0,0,0.2)'
-                    ],
-                  }}
-                  transition={{
-                    duration: 2,
-                    repeat: Infinity,
-                    repeatType: 'reverse'
-                  }}
-                >
-                  PROMPT<span className="text-[#2D2D2D]">OR</span>DIE
-                </motion.div>
-              </motion.div>
-            )}
-          </>
-        )}
-        
-        {/* Typing animation */}
-        {showTypingAnimation && (
+    <div className="w-full min-h-screen bg-black relative overflow-hidden flex flex-col items-center justify-center">
+      {/* Particle Canvas */}
+      <div 
+        ref={canvasRef} 
+        className="absolute inset-0 overflow-hidden"
+      >
+        {particles.map(particle => (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center z-20"
-          >
-            <div className="relative">
-              <motion.h1 
-                className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-mono font-bold text-[#8B0000]"
-              >
-                {typedText}
-                <span className="inline-block h-8 w-1 ml-1 bg-[#8B0000] animate-pulse"></span>
-              </motion.h1>
-            </div>
-            
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: finalText.length * (typingSpeed/1000) + 1, duration: 0.8 }}
-              className="mt-12 flex flex-col sm:flex-row gap-4 justify-center"
-            >
-              <Button 
-                asChild
-                className="bg-[#8B0000]/90 hover:bg-[#8B0000] text-white border border-[#8B0000]/60 px-6 py-6 text-lg h-auto shadow-[0_0_15px_rgba(139,0,0,0.3)]"
-              >
-                <Link to="/auth">Enter The Circle</Link>
-              </Button>
-              <Button 
-                asChild
-                variant="outline" 
-                className="border-[#8B0000]/40 text-[#8B0000] hover:bg-[#8B0000]/10 px-6 py-6 text-lg h-auto"
-              >
-                <Link to="/auth?tab=register">Join The Order</Link>
-              </Button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-      
-      {/* Mysterious floating dust particles for atmosphere */}
-      <div className="absolute inset-0 pointer-events-none z-0">
-        {Array.from({ length: 50 }).map((_, i) => (
-          <div
-            key={`dust-${i}`}
-            className="absolute w-1 h-1 rounded-full bg-white/10"
+            key={particle.id}
+            className={`absolute font-mono text-sm ${theme === 'dark' ? 'text-white' : 'text-black'} ${particle.isInWord ? 'font-bold' : 'opacity-50'}`}
             style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              opacity: Math.random() * 0.5,
-              animation: `float ${3 + Math.random() * 7}s infinite ease-in-out ${Math.random() * 5}s`,
+              left: particle.x,
+              top: particle.y,
+              position: 'absolute',
             }}
-          />
+            animate={{
+              x: particle.x,
+              y: particle.y,
+              transition: { duration: 0.1, ease: 'linear' }
+            }}
+          >
+            {particle.letter}
+          </motion.div>
+        ))}
+        
+        {/* Formed Words */}
+        {Object.entries(formedWords).map(([wordId, { x, y, word }]) => (
+          <motion.div
+            key={wordId}
+            className="absolute font-mono text-xl font-bold tracking-widest"
+            style={{
+              left: x,
+              top: y,
+              color: '#8B0000',
+              opacity: 0
+            }}
+            animate={{
+              opacity: [0, 1, 1, 0],
+              scale: [0.8, 1.2, 1, 0.9],
+            }}
+            transition={{
+              duration: 5,
+              times: [0, 0.1, 0.8, 1],
+              ease: "easeInOut"
+            }}
+          >
+            {word}
+          </motion.div>
         ))}
       </div>
+      
+      {/* Cycling Quote in Center */}
+      <div className="relative z-10 text-center max-w-2xl px-4">
+        <AnimatePresence mode="wait">
+          <motion.p
+            key={currentPhrase}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.5 }}
+            className="text-xl md:text-2xl text-white font-mono"
+          >
+            {enigmaticPhrases[currentPhrase]}
+          </motion.p>
+        </AnimatePresence>
+      </div>
+      
+      {/* Animated "Prompt or Die" Text in Bottom Right */}
+      <div className="absolute bottom-8 right-8 z-10">
+        <motion.div 
+          className="text-[#8B0000] font-bold text-4xl md:text-6xl lg:text-7xl"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 1 }}
+        >
+          <motion.span
+            animate={{
+              textShadow: [
+                '0 0 5px rgba(139,0,0,0.3)',
+                '0 0 15px rgba(139,0,0,0.5)',
+                '0 0 5px rgba(139,0,0,0.3)'
+              ],
+            }}
+            transition={{
+              duration: 2,
+              repeat: Infinity,
+              repeatType: 'reverse'
+            }}
+            className="drop-shadow-[0_0_8px_rgba(139,0,0,0.8)] filter"
+          >
+            PROMPT<span className="text-white">OR</span>DIE
+          </motion.span>
+        </motion.div>
+      </div>
+      
+      {/* Ghost layer for extra depth */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(139,0,0,0.1),transparent_70%)] pointer-events-none"></div>
     </div>
   );
 };
