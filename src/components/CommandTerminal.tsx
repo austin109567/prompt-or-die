@@ -8,7 +8,7 @@ import {
 } from '@/components/ui/dialog';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { signOut } from '@/lib/supabase';
+import { signOut, signIn, signUp, supabase } from '@/lib/supabase';
 
 interface CommandTerminalProps {
   isOpen: boolean;
@@ -22,9 +22,14 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
   const [input, setInput] = useState('');
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
-  const [outputLines, setOutputLines] = useState<Array<{ text: string; isCommand?: boolean; isError?: boolean }>>([
-    { text: "PROMPT OR DIE TERMINAL v1.0.0" },
-    { text: "Type 'help' to see available commands." },
+  const [outputLines, setOutputLines] = useState<Array<{ text: string; isCommand?: boolean; isError?: boolean; isSuccess?: boolean; isWarning?: boolean; isPrompt?: boolean }>>([
+    { text: "PROMPT OR DIE TERMINAL v1.0.0", isPrompt: true },
+    { text: "THE CIRCLE WELCOMES YOU. AUTHENTICATE OR PERISH.", isPrompt: true },
+    { text: "" },
+    { text: "Available commands:", isWarning: true },
+    { text: "  login <email> <password> - Access your account", isWarning: true },
+    { text: "  register <handle> <email> <password> - Join the circle", isWarning: true },
+    { text: "  help - View all available commands", isWarning: true },
     { text: "" }
   ]);
   
@@ -33,6 +38,13 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
   const { toast } = useToast();
   const terminalRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Authentication state for the current session
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authHandle, setAuthHandle] = useState('');
+  const [authStep, setAuthStep] = useState<'none' | 'email' | 'password' | 'handle'>('none');
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   
   useEffect(() => {
     // Auto-focus the input when the dialog opens
@@ -51,8 +63,14 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
   }, [outputLines]);
   
   // Process commands
-  const executeCommand = (cmd: string) => {
+  const executeCommand = async (cmd: string) => {
     if (!cmd.trim()) return;
+    
+    // If we're in the middle of an auth flow, handle that differently
+    if (authStep !== 'none') {
+      handleAuthStep(cmd);
+      return;
+    }
     
     const fullCommand = `${cmd}`;
     setOutputLines(prev => [...prev, { text: fullCommand, isCommand: true }]);
@@ -78,13 +96,25 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
         navigateTo(args[1]);
         break;
       case 'login':
-        navigateTo('auth');
+        if (args.length === 3) {
+          // Direct login with command: login email password
+          handleDirectLogin(args[1], args[2]);
+        } else {
+          // Start interactive login
+          startAuthFlow('login');
+        }
+        break;
+      case 'register':
+        if (args.length === 4) {
+          // Direct register with command: register handle email password
+          handleDirectRegister(args[1], args[2], args[3]);
+        } else {
+          // Start interactive registration
+          startAuthFlow('register');
+        }
         break;
       case 'logout':
         handleLogout();
-        break;
-      case 'register':
-        navigateTo('auth?tab=register');
         break;
       case 'dashboard':
         navigateTo('dashboard');
@@ -110,6 +140,9 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
       case 'whoami':
         showUserInfo();
         break;
+      case 'status':
+        showSystemStatus();
+        break;
       case 'exit':
         onOpenChange(false);
         break;
@@ -123,10 +156,231 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
     // Reset input
     setInput('');
   };
+
+  // Start an interactive auth flow
+  const startAuthFlow = (mode: 'login' | 'register') => {
+    setAuthMode(mode);
+    setAuthEmail('');
+    setAuthPassword('');
+    setAuthHandle('');
+    
+    if (mode === 'login') {
+      setOutputLines(prev => [...prev, { 
+        text: "INITIATE LOGIN SEQUENCE",
+        isPrompt: true
+      }, {
+        text: "Enter your email:",
+        isWarning: true
+      }]);
+    } else {
+      setOutputLines(prev => [...prev, { 
+        text: "INITIATE REGISTRATION SEQUENCE",
+        isPrompt: true
+      }, {
+        text: "Enter your desired handle:",
+        isWarning: true
+      }]);
+    }
+    
+    setAuthStep(mode === 'login' ? 'email' : 'handle');
+  };
+
+  // Handle auth flow steps
+  const handleAuthStep = (input: string) => {
+    setOutputLines(prev => [...prev, { text: input, isCommand: true }]);
+    
+    switch (authStep) {
+      case 'handle':
+        setAuthHandle(input.trim());
+        setOutputLines(prev => [...prev, { text: "Enter your email:", isWarning: true }]);
+        setAuthStep('email');
+        break;
+        
+      case 'email':
+        // Simple email validation
+        if (!input.includes('@') || !input.includes('.')) {
+          setOutputLines(prev => [...prev, { text: "Invalid email format. Please enter a valid email:", isError: true }]);
+          return;
+        }
+        
+        setAuthEmail(input.trim());
+        setOutputLines(prev => [...prev, { text: "Enter your password:", isWarning: true }]);
+        setAuthStep('password');
+        break;
+        
+      case 'password':
+        setAuthPassword(input.trim());
+        
+        if (input.length < 6) {
+          setOutputLines(prev => [...prev, { text: "Password must be at least 6 characters. Try again:", isError: true }]);
+          return;
+        }
+        
+        // Complete the auth flow
+        if (authMode === 'login') {
+          completeLogin(authEmail, input.trim());
+        } else {
+          completeRegistration(authHandle, authEmail, input.trim());
+        }
+        
+        // Reset auth step
+        setAuthStep('none');
+        break;
+    }
+    
+    // Reset input after processing
+    setInput('');
+  };
+  
+  // Handle direct login via command
+  const handleDirectLogin = async (email: string, password: string) => {
+    try {
+      setOutputLines(prev => [...prev, { 
+        text: "Authenticating...", 
+        isWarning: true 
+      }]);
+      
+      await signIn(email, password);
+      
+      setOutputLines(prev => [...prev, { 
+        text: "LOGIN SUCCESSFUL", 
+        isSuccess: true 
+      }, {
+        text: `Welcome back, ${email.split('@')[0]}.`,
+        isPrompt: true
+      }]);
+      
+      toast({
+        title: "Logged in successfully!",
+        description: "Welcome back to Prompt or Die"
+      });
+      
+      // Navigate to dashboard after a delay
+      setTimeout(() => {
+        navigate('/dashboard');
+        onOpenChange(false);
+      }, 1500);
+      
+    } catch (error: any) {
+      setOutputLines(prev => [...prev, { 
+        text: `AUTHENTICATION FAILURE: ${error.message || "Invalid credentials"}`, 
+        isError: true 
+      }]);
+    }
+  };
+  
+  // Complete the interactive login
+  const completeLogin = async (email: string, password: string) => {
+    try {
+      setOutputLines(prev => [...prev, { 
+        text: "Authenticating...", 
+        isWarning: true 
+      }]);
+      
+      await signIn(email, password);
+      
+      setOutputLines(prev => [...prev, { 
+        text: "LOGIN SUCCESSFUL", 
+        isSuccess: true 
+      }, {
+        text: `Welcome back, ${email.split('@')[0]}.`,
+        isPrompt: true
+      }]);
+      
+      toast({
+        title: "Logged in successfully!",
+        description: "Welcome back to Prompt or Die"
+      });
+      
+      // Navigate to dashboard after a delay
+      setTimeout(() => {
+        navigate('/dashboard');
+        onOpenChange(false);
+      }, 1500);
+      
+    } catch (error: any) {
+      setOutputLines(prev => [...prev, { 
+        text: `AUTHENTICATION FAILURE: ${error.message || "Invalid credentials"}`, 
+        isError: true 
+      }]);
+      
+      // Reset auth step to start over
+      setAuthStep('none');
+    }
+  };
+  
+  // Handle direct registration via command
+  const handleDirectRegister = async (handle: string, email: string, password: string) => {
+    try {
+      setOutputLines(prev => [...prev, { 
+        text: "Initiating registration...", 
+        isWarning: true 
+      }]);
+      
+      await signUp(email, password, handle);
+      
+      setOutputLines(prev => [...prev, { 
+        text: "REGISTRATION SUCCESSFUL", 
+        isSuccess: true 
+      }, {
+        text: "Welcome to the Order. You may now authenticate with your credentials.",
+        isPrompt: true
+      }]);
+      
+      toast({
+        title: "Account created!",
+        description: "Welcome to Prompt or Die"
+      });
+      
+    } catch (error: any) {
+      setOutputLines(prev => [...prev, { 
+        text: `REGISTRATION FAILURE: ${error.message || "Registration failed"}`, 
+        isError: true 
+      }]);
+    }
+  };
+  
+  // Complete the interactive registration
+  const completeRegistration = async (handle: string, email: string, password: string) => {
+    try {
+      setOutputLines(prev => [...prev, { 
+        text: "Initiating registration...", 
+        isWarning: true 
+      }]);
+      
+      await signUp(email, password, handle);
+      
+      setOutputLines(prev => [...prev, { 
+        text: "REGISTRATION SUCCESSFUL", 
+        isSuccess: true 
+      }, {
+        text: "Welcome to the Order. You may now authenticate with your credentials.",
+        isPrompt: true
+      }, {
+        text: "Type 'login' to proceed.",
+        isWarning: true
+      }]);
+      
+      toast({
+        title: "Account created!",
+        description: "Welcome to Prompt or Die"
+      });
+      
+    } catch (error: any) {
+      setOutputLines(prev => [...prev, { 
+        text: `REGISTRATION FAILURE: ${error.message || "Registration failed"}`, 
+        isError: true 
+      }]);
+      
+      // Reset auth step to start over
+      setAuthStep('none');
+    }
+  };
   
   const clearTerminal = () => {
     setOutputLines([
-      { text: "Terminal cleared." },
+      { text: "PROMPT OR DIE TERMINAL v1.0.0", isPrompt: true },
+      { text: "Terminal cleared.", isSuccess: true },
       { text: "" }
     ]);
   };
@@ -145,7 +399,7 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
 
     // Handle navigation
     const sanitized = path.replace(/[^a-zA-Z0-9-_/]/g, '');
-    setOutputLines(prev => [...prev, { text: `Navigating to ${sanitized}...` }]);
+    setOutputLines(prev => [...prev, { text: `Navigating to ${sanitized}...`, isSuccess: true }]);
 
     // Use setTimeout to ensure the navigation message is seen before redirecting
     setTimeout(() => {
@@ -160,18 +414,20 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
   const handleLogout = async () => {
     if (!isAuthenticated) {
       setOutputLines(prev => [...prev, { 
-        text: "Error: You are not logged in.",
+        text: "ERROR: AUTHENTICATION REQUIRED",
         isError: true 
       }]);
       return;
     }
     
-    setOutputLines(prev => [...prev, { text: "Logging out..." }]);
+    setOutputLines(prev => [...prev, { text: "Logging out...", isWarning: true }]);
     
     try {
       await signOut();
-      setOutputLines(prev => [...prev, { text: "Logout successful." }]);
-      onOpenChange(false);
+      setOutputLines(prev => [...prev, { 
+        text: "LOGOUT SUCCESSFUL", 
+        isSuccess: true 
+      }]);
       
       toast({
         title: "Signed out successfully",
@@ -181,11 +437,12 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
       // Navigate to home page
       setTimeout(() => {
         navigate('/');
+        onOpenChange(false);
       }, 500);
       
     } catch (error: any) {
       setOutputLines(prev => [...prev, { 
-        text: `Error: ${error.message || "Failed to log out"}`,
+        text: `ERROR: ${error.message || "Failed to log out"}`,
         isError: true 
       }]);
     }
@@ -194,15 +451,18 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
   const showUserInfo = () => {
     if (!isAuthenticated) {
       setOutputLines(prev => [...prev, { 
-        text: "You are not logged in. Use 'login' to authenticate.",
+        text: "AUTHENTICATION REQUIRED",
         isError: true 
+      }, {
+        text: "Use 'login <email> <password>' or 'register <handle> <email> <password>' to authenticate.",
+        isWarning: true
       }]);
       return;
     }
     
     setOutputLines(prev => [
       ...prev, 
-      { text: "=== User Information ===" },
+      { text: "=== USER IDENTITY ===", isPrompt: true },
       { text: `Email: ${user?.email}` },
       { text: `User ID: ${user?.id}` },
       { text: `Auth Provider: ${user?.app_metadata?.provider || 'email'}` },
@@ -211,11 +471,31 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
     ]);
   };
   
+  const showSystemStatus = () => {
+    const date = new Date();
+    const formattedDate = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
+    
+    setOutputLines(prev => [
+      ...prev, 
+      { text: "=== SYSTEM STATUS ===", isPrompt: true },
+      { text: `Date: ${formattedDate}` },
+      { text: `Time: ${date.toLocaleTimeString()}` },
+      { text: `Authentication: ${isAuthenticated ? 'ACTIVE' : 'INACTIVE'}` },
+      { text: `Server Status: ONLINE` },
+      { text: `Prompt Engine: OPERATIONAL` },
+      { text: `API Version: 1.0.3` },
+      { text: "" }
+    ]);
+  };
+  
   const handleCreateCommand = (args: string[]) => {
     if (!isAuthenticated) {
       setOutputLines(prev => [...prev, { 
-        text: "Error: You must be logged in to create resources.",
+        text: "AUTHENTICATION REQUIRED",
         isError: true 
+      }, {
+        text: "Use 'login <email> <password>' to authenticate.",
+        isWarning: true
       }]);
       return;
     }
@@ -226,7 +506,7 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
         isError: true 
       }, {
         text: "Available resources: project, template, block",
-        isError: false
+        isWarning: true
       }]);
       return;
     }
@@ -237,14 +517,14 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
       case 'project':
         setOutputLines(prev => [
           ...prev, 
-          { text: "Creating new project..." },
-          { text: "Project created successfully. Redirecting to editor..." }
+          { text: "Creating new project...", isWarning: true },
+          { text: "Project created successfully. Redirecting to editor...", isSuccess: true }
         ]);
         
         // Close terminal and navigate to dashboard
         setTimeout(() => {
           onOpenChange(false);
-          navigate('/dashboard');
+          navigate('/projects/new');
           
           toast({
             title: "Project Created",
@@ -256,16 +536,16 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
       case 'template':
         setOutputLines(prev => [
           ...prev, 
-          { text: "Creating new template..." },
-          { text: "Template creation not yet implemented in CLI." }
+          { text: "Creating new template...", isWarning: true },
+          { text: "Template creation not yet implemented in CLI.", isWarning: true }
         ]);
         break;
         
       case 'block':
         setOutputLines(prev => [
           ...prev, 
-          { text: "Block creation requires an active project." },
-          { text: "Please navigate to a project first with: goto dashboard" }
+          { text: "Block creation requires an active project.", isWarning: true },
+          { text: "Please navigate to a project first with: goto projects/new", isWarning: true }
         ]);
         break;
         
@@ -275,19 +555,30 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
           isError: true 
         }, {
           text: "Available resources: project, template, block",
-          isError: false
+          isWarning: true
         }]);
     }
   };
   
   const handleListCommand = (args: string[]) => {
+    if (!isAuthenticated && args[0] !== 'commands') {
+      setOutputLines(prev => [...prev, { 
+        text: "AUTHENTICATION REQUIRED",
+        isError: true 
+      }, {
+        text: "Use 'login <email> <password>' to authenticate.",
+        isWarning: true
+      }]);
+      return;
+    }
+    
     if (args.length === 0) {
       setOutputLines(prev => [...prev, { 
         text: "Error: Missing resource type. Usage: list <resource>",
         isError: true 
       }, {
         text: "Available resources: projects, commands, templates",
-        isError: false
+        isWarning: true
       }]);
       return;
     }
@@ -306,7 +597,7 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
         
         setOutputLines(prev => [
           ...prev, 
-          { text: "=== Your Projects ===" },
+          { text: "=== YOUR PROJECTS ===", isPrompt: true },
           { text: "Fetching projects..." },
           { text: "1. My First Project" },
           { text: "2. Code Review Template" },
@@ -322,7 +613,7 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
       case 'templates':
         setOutputLines(prev => [
           ...prev, 
-          { text: "=== Available Templates ===" },
+          { text: "=== AVAILABLE TEMPLATES ===", isPrompt: true },
           { text: "1. Content Summarizer" },
           { text: "2. Code Reviewer" },
           { text: "3. Creative Writer" },
@@ -339,7 +630,7 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
           isError: true 
         }, {
           text: "Available resources: projects, commands, templates",
-          isError: false
+          isWarning: true
         }]);
     }
   };
@@ -347,8 +638,8 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
   const handleGeneratePrompt = () => {
     setOutputLines(prev => [
       ...prev, 
-      { text: "Generating prompt..." },
-      { text: "Generated prompt:" },
+      { text: "Generating prompt...", isWarning: true },
+      { text: "Generated prompt:", isPrompt: true },
       { text: "------------------------" },
       { text: "## INTENT: Summarize Content" },
       { text: "Provide a concise summary of the given content, highlighting key points and main ideas." },
@@ -359,7 +650,7 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
       { text: "## FORMAT: Bullet Points" },
       { text: "Format the output as organized bullet points with clear hierarchy." },
       { text: "------------------------" },
-      { text: "Prompt generated successfully." },
+      { text: "Prompt generated successfully.", isSuccess: true },
       { text: "" }
     ]);
   };
@@ -367,8 +658,8 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
   const handleExportPrompt = () => {
     setOutputLines(prev => [
       ...prev, 
-      { text: "Exporting prompt..." },
-      { text: "Prompt copied to clipboard." },
+      { text: "Exporting prompt...", isWarning: true },
+      { text: "Prompt copied to clipboard.", isSuccess: true },
       { text: "" }
     ]);
     
@@ -381,35 +672,36 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
   const showHelp = () => {
     setOutputLines(prev => [
       ...prev, 
-      { text: "=== AVAILABLE COMMANDS ===" },
-      { text: "" },
-      { text: "Navigation:" },
-      { text: "  goto <page>      - Navigate to a specific page" },
-      { text: "  cd <page>        - Alias for goto" },
+      { text: "=== AVAILABLE COMMANDS ===", isPrompt: true },
       { text: "" },
       { text: "Authentication:" },
-      { text: "  login            - Go to login page" },
-      { text: "  logout           - Sign out current user" },
-      { text: "  register         - Go to registration page" },
-      { text: "  whoami           - Show current user info" },
+      { text: "  login <email> <password>  - Sign in with credentials" },
+      { text: "  register <handle> <email> <password> - Create a new account" },
+      { text: "  logout                    - Sign out current user" },
+      { text: "  whoami                    - Show current user info" },
+      { text: "" },
+      { text: "Navigation:" },
+      { text: "  goto <page>               - Navigate to a specific page" },
+      { text: "  cd <page>                 - Alias for goto" },
       { text: "" },
       { text: "Pages:" },
-      { text: "  dashboard        - Go to user dashboard" },
-      { text: "  gallery          - Go to template gallery" },
-      { text: "  docs             - Go to documentation" },
+      { text: "  dashboard                 - Go to user dashboard" },
+      { text: "  gallery                   - Go to template gallery" },
+      { text: "  docs                      - Go to documentation" },
       { text: "" },
       { text: "Resources:" },
-      { text: "  create <resource> - Create a new resource (project, template, block)" },
-      { text: "  list <resource>   - List resources (projects, templates, commands)" },
+      { text: "  create <resource>         - Create a new resource (project, template, block)" },
+      { text: "  list <resource>           - List resources (projects, templates, commands)" },
       { text: "" },
       { text: "Prompts:" },
-      { text: "  generate         - Generate prompt from blocks" },
-      { text: "  export           - Export current prompt" },
+      { text: "  generate                  - Generate prompt from blocks" },
+      { text: "  export                    - Export current prompt" },
       { text: "" },
       { text: "System:" },
-      { text: "  help             - Show this help message" },
-      { text: "  clear            - Clear terminal output" },
-      { text: "  exit             - Close terminal" },
+      { text: "  status                    - Show system status" },
+      { text: "  help                      - Show this help message" },
+      { text: "  clear                     - Clear terminal output" },
+      { text: "  exit                      - Close terminal" },
       { text: "" }
     ]);
   };
@@ -454,7 +746,18 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
   };
   
   const handleCtrlC = () => {
-    setOutputLines(prev => [...prev, { text: `^C`, isCommand: true }]);
+    // If in auth flow, cancel it
+    if (authStep !== 'none') {
+      setAuthStep('none');
+      setOutputLines(prev => [
+        ...prev, 
+        { text: "^C", isCommand: true },
+        { text: "Authentication sequence aborted.", isError: true },
+        { text: "" }
+      ]);
+    } else {
+      setOutputLines(prev => [...prev, { text: "^C", isCommand: true }]);
+    }
     setInput('');
   };
   
@@ -465,7 +768,7 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
     const commands = [
       'help', 'clear', 'goto', 'cd', 'login', 'logout', 'register',
       'dashboard', 'gallery', 'docs', 'create', 'list', 'generate',
-      'export', 'whoami', 'exit'
+      'export', 'whoami', 'exit', 'status'
     ];
     
     const matches = commands.filter(cmd => cmd.startsWith(input));
@@ -484,17 +787,17 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent 
-        className="w-[95vw] max-w-[800px] h-[500px] p-0 bg-black border-primary/30 shadow-[0_0_30px_rgba(0,255,128,0.15)] rounded-lg"
+        className="w-[95vw] max-w-[800px] h-[500px] p-0 bg-black border-primary/30 shadow-[0_0_30px_rgba(139,0,0,0.25)] rounded-lg"
         onInteractOutside={(e) => e.preventDefault()} // Prevent closing on outside click
       >
         <DialogHeader>
-          <DialogTitle className="sr-only">Command Terminal</DialogTitle>
+          <DialogTitle className="sr-only">Prompt or Die Terminal</DialogTitle>
         </DialogHeader>
         <div 
           className="terminal-window flex flex-col h-full w-full rounded-lg bg-black overflow-hidden font-mono"
         >
           {/* Terminal header */}
-          <div className="terminal-header flex items-center justify-between p-2 bg-gradient-to-r from-black to-primary/10 border-b border-primary/30">
+          <div className="terminal-header flex items-center justify-between p-2 bg-gradient-to-r from-black to-[#8B0000]/20 border-b border-[#8B0000]/30">
             <div className="flex items-center gap-2">
               <div className="flex space-x-2">
                 <div 
@@ -504,25 +807,30 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
                 <div className="h-3 w-3 rounded-full bg-yellow-500/70"></div>
                 <div className="h-3 w-3 rounded-full bg-green-500/70"></div>
               </div>
-              <span className="text-xs text-primary/70 ml-2">prompt-terminal</span>
+              <span className="text-xs text-[#8B0000]/70 ml-2">prompt-terminal</span>
             </div>
-            <div className="text-xs text-primary/70 mr-2">v1.0.0</div>
+            <div className="text-xs text-[#8B0000]/70 mr-2">v1.0.0</div>
           </div>
           
           {/* Terminal output area */}
           <div 
             ref={terminalRef}
-            className="terminal-output flex-1 p-4 overflow-auto bg-black text-white text-sm leading-relaxed scrollbar-thin scrollbar-thumb-primary/20 scrollbar-track-transparent"
+            className="terminal-output flex-1 p-4 overflow-auto bg-black text-white text-sm leading-relaxed scrollbar-thin scrollbar-thumb-[#8B0000]/20 scrollbar-track-transparent"
           >
             {outputLines.map((line, index) => (
               <div key={index} className="terminal-line">
                 {line.isCommand ? (
                   <div className="flex">
-                    <span className="text-primary mr-2">❯</span>
+                    <span className="text-[#8B0000] mr-2">❯</span>
                     <span className={line.isError ? "text-red-400" : "text-white"}>{line.text}</span>
                   </div>
                 ) : (
-                  <div className={`ml-4 ${line.isError ? "text-red-400" : "text-white/90"}`}>
+                  <div className={`ml-4 
+                    ${line.isError ? "text-red-400" : ""} 
+                    ${line.isSuccess ? "text-green-400" : ""}
+                    ${line.isWarning ? "text-yellow-400" : ""}
+                    ${line.isPrompt ? "text-[#8B0000] font-bold" : "text-white/90"}`}
+                  >
                     {line.text}
                   </div>
                 )}
@@ -531,7 +839,7 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
             
             {/* Current input line */}
             <div className="terminal-input flex mt-2">
-              <span className="text-primary mr-2">❯</span>
+              <span className="text-[#8B0000] mr-2">❯</span>
               <input
                 ref={inputRef}
                 type="text"
@@ -542,6 +850,10 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
                 autoFocus
                 autoComplete="off"
                 spellCheck="false"
+                // Only hide input when in password step
+                style={{ 
+                  WebkitTextSecurity: authStep === 'password' ? 'disc' : 'none' 
+                }}
               />
             </div>
           </div>
