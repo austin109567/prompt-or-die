@@ -119,5 +119,9 @@ export default {
 			}
 		}
 	},
-	plugins: [require("tailwindcss-animate"), require('@tailwindcss/typography')],
+       plugins: [
+               // Import plugins using ES module syntax for lint compliance
+               (await import('tailwindcss-animate')).default,
+               (await import('@tailwindcss/typography')).default
+       ],
 } satisfies Config;
