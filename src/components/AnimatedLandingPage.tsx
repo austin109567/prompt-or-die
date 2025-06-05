@@ -37,9 +37,14 @@ const verseReferences = [
   "Epistle to the Programmers 5:11"
 ];
 
+// Animation constants
+const FADE_DURATION = 0.7; // 0.7 seconds for fade in/out
+const VERSE_DISPLAY_DURATION = 6000; // 6 seconds to display verse
+const VERSE_TRANSITION_DURATION = 3000; // 3 seconds for crimson transition
+
 const AnimatedLandingPage = () => {
   const { theme } = useTheme();
-  const [activeVerses, setActiveVerses] = useState<Array<{id: string, verse: string, reference: string}>>([]);
+  const [activeVerses, setActiveVerses] = useState<Array<{id: string, verse: string, reference: string, transitioning?: boolean}>>([]);
   const [showFinalText, setShowFinalText] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
   const timeoutRefs = useRef<{[key: string]: NodeJS.Timeout}>({});
@@ -91,12 +96,12 @@ const AnimatedLandingPage = () => {
             v.id === newVerse.id ? { ...v, transitioning: true } : v
           )
         );
-      }, 6000); // Start transition after 6 seconds
+      }, VERSE_DISPLAY_DURATION); // Start transition after display duration
       
       // Schedule the verse to be removed
       timeoutRefs.current[`${newVerse.id}-remove`] = setTimeout(() => {
         setActiveVerses(prev => prev.filter(v => v.id !== newVerse.id));
-      }, 9000); // Remove after 9 seconds (3 seconds after starting transition)
+      }, VERSE_DISPLAY_DURATION + VERSE_TRANSITION_DURATION); // Remove after transition completes
     };
     
     // Add initial verses
@@ -140,7 +145,7 @@ const AnimatedLandingPage = () => {
               color: transitioning ? "#8B0000" : "#FFFFFF"
             }}
             transition={{ 
-              duration: transitioning ? 3 : 1.5, 
+              duration: FADE_DURATION, 
               ease: "easeInOut"
             }}
             style={{
@@ -165,7 +170,7 @@ const AnimatedLandingPage = () => {
               className="absolute inset-0 flex items-center justify-center"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ duration: 5 }}
+              transition={{ duration: FADE_DURATION * 2, ease: "easeInOut" }}
             >
               <motion.h1 
                 className="text-4xl md:text-6xl lg:text-8xl font-bold tracking-widest"
