@@ -1,8 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 import { Database } from './database.types';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+// Support both browser and Node environments
+const metaEnv = typeof import.meta !== 'undefined' ? (import.meta as any).env ?? {} : {};
+const supabaseUrl = (metaEnv.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL) as string;
+const supabaseAnonKey = (metaEnv.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY) as string;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Missing Supabase environment variables. Please check your configuration.');
