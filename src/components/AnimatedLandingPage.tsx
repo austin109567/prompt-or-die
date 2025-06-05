@@ -1,6 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '@/hooks/use-theme';
+import { Button } from '@/components/ui/button';
+import { Link } from 'react-router-dom';
 
 // Ancient, mystical verses that will appear on screen
 const enigmaticVerses = [
@@ -30,9 +32,14 @@ const AnimatedLandingPage = () => {
   const { theme } = useTheme();
   const [visibleVerses, setVisibleVerses] = useState<VerseProps[]>([]);
   const [showPromptOrDie, setShowPromptOrDie] = useState(false);
+  const [showButtons, setShowButtons] = useState(false);
+  const [showTypingAnimation, setShowTypingAnimation] = useState(false);
+  const [typedText, setTypedText] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
   const timeoutsRef = useRef<NodeJS.Timeout[]>([]);
   const versesUsedRef = useRef<Set<number>>(new Set());
+  const finalText = "Prompt or Die";
+  const typingSpeed = 120; // ms per character
 
   // Calculate a random position within the container
   const getRandomPosition = () => {
@@ -67,6 +74,8 @@ const AnimatedLandingPage = () => {
 
   // Create and schedule a new verse to appear
   const addVerse = () => {
+    if (showTypingAnimation) return; // Don't add more verses after typing animation starts
+    
     // Random timing parameters
     const displayDuration = 7000 + Math.random() * 5000; // 7-12 seconds on screen
     const fadeInOutDuration = 1500 + Math.random() * 1000; // 1.5-2.5 seconds for fade
@@ -84,35 +93,71 @@ const AnimatedLandingPage = () => {
     
     // Schedule removal of this verse
     const removeTimeout = setTimeout(() => {
-      setVisibleVerses(prev => prev.filter(v => v.id !== newVerse.id));
+      if (!showTypingAnimation) {
+        setVisibleVerses(prev => prev.filter(v => v.id !== newVerse.id));
+      }
     }, displayDuration);
     
     timeoutsRef.current.push(removeTimeout);
     
     // Schedule the next verse with some randomized delay
-    const nextVerseDelay = 3000 + Math.random() * 4000; // 3-7 seconds between verses
-    const nextVerseTimeout = setTimeout(addVerse, nextVerseDelay);
-    timeoutsRef.current.push(nextVerseTimeout);
+    if (!showTypingAnimation) {
+      const nextVerseDelay = 3000 + Math.random() * 4000; // 3-7 seconds between verses
+      const nextVerseTimeout = setTimeout(() => {
+        if (!showTypingAnimation) addVerse();
+      }, nextVerseDelay);
+      timeoutsRef.current.push(nextVerseTimeout);
+    }
+  };
+
+  // Handle typing animation
+  const startTypingAnimation = () => {
+    setShowTypingAnimation(true);
+    setVisibleVerses([]);
+    setShowPromptOrDie(false);
+    setTypedText("");
+    
+    // Type each character one by one
+    let charIndex = 0;
+    const typeNextChar = () => {
+      if (charIndex <= finalText.length) {
+        setTypedText(finalText.slice(0, charIndex));
+        charIndex++;
+        
+        if (charIndex <= finalText.length) {
+          const randomVariation = Math.random() * 50; // Add a bit of randomness to typing speed
+          const timeout = setTimeout(typeNextChar, typingSpeed + randomVariation);
+          timeoutsRef.current.push(timeout);
+        }
+      }
+    };
+    
+    typeNextChar();
   };
 
   // Initialize the verse display sequence
   useEffect(() => {
     // Add first few verses with staggered timing
-    const initialDelays = [1000, 4000, 8000, 13000];
+    const initialDelays = [1000, 4000, 8000];
     
-    initialDelays.forEach((delay, index) => {
+    initialDelays.forEach((delay) => {
       const timeout = setTimeout(() => {
         addVerse();
       }, delay);
       timeoutsRef.current.push(timeout);
     });
     
-    // Show "PROMPT OR DIE" after a reasonable delay
-    const promptOrDieDelay = setTimeout(() => {
-      setShowPromptOrDie(true);
-    }, 20000); // 20 seconds
+    // Show login/signup buttons after 5 seconds
+    const buttonsDelay = setTimeout(() => {
+      setShowButtons(true);
+    }, 5000);
+    timeoutsRef.current.push(buttonsDelay);
     
-    timeoutsRef.current.push(promptOrDieDelay);
+    // Start typing animation after 10 seconds
+    const typingDelay = setTimeout(() => {
+      startTypingAnimation();
+    }, 10000);
+    timeoutsRef.current.push(typingDelay);
     
     // Cleanup timeouts on unmount
     return () => {
@@ -139,62 +184,127 @@ const AnimatedLandingPage = () => {
       {/* Subtle crimson radial gradient */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(139,0,0,0.1),transparent_70%)]"></div>
       
-      {/* Floating verses positioned across the screen */}
-      <div className="relative w-full h-full flex items-center justify-center">
-        <AnimatePresence>
-          {visibleVerses.map(verse => (
-            <motion.p
-              key={verse.id}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.7 }}
-              exit={{ opacity: 0 }}
-              transition={{ 
-                duration: verse.duration / 1000, 
-                ease: "easeInOut"
-              }}
-              className="absolute font-serif italic text-white/70 text-sm md:text-base lg:text-lg leading-relaxed max-w-xs text-center pointer-events-none"
-              style={{
-                transform: `translate(${verse.position.x}px, ${verse.position.y}px)`,
-              }}
-            >
-              {verse.text}
-            </motion.p>
-          ))}
-        </AnimatePresence>
-      </div>
-      
-      {/* PROMPT OR DIE text */}
       <AnimatePresence>
-        {showPromptOrDie && (
+        {!showTypingAnimation && (
+          <>
+            {/* Floating verses positioned across the screen */}
+            {visibleVerses.map(verse => (
+              <motion.p
+                key={verse.id}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 0.7 }}
+                exit={{ opacity: 0 }}
+                transition={{ 
+                  duration: verse.duration / 1000, 
+                  ease: "easeInOut"
+                }}
+                className="absolute font-serif italic text-white/70 text-sm md:text-base lg:text-lg leading-relaxed max-w-xs text-center pointer-events-none z-10"
+                style={{
+                  transform: `translate(${verse.position.x}px, ${verse.position.y}px)`,
+                }}
+              >
+                {verse.text}
+              </motion.p>
+            ))}
+            
+            {/* Login/Signup buttons */}
+            {showButtons && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.5, ease: "easeOut" }}
+                className="absolute bottom-20 z-30 flex flex-col sm:flex-row gap-4"
+              >
+                <Button 
+                  asChild
+                  className="bg-[#8B0000]/90 hover:bg-[#8B0000] text-white border border-[#8B0000]/60 px-6 py-6 text-lg h-auto shadow-[0_0_15px_rgba(139,0,0,0.3)]"
+                >
+                  <Link to="/auth">Enter The Circle</Link>
+                </Button>
+                <Button 
+                  asChild
+                  variant="outline" 
+                  className="border-[#8B0000]/40 text-[#8B0000] hover:bg-[#8B0000]/10 px-6 py-6 text-lg h-auto"
+                >
+                  <Link to="/auth?tab=register">Join The Order</Link>
+                </Button>
+              </motion.div>
+            )}
+            
+            {/* PROMPT OR DIE subtle text */}
+            {showPromptOrDie && !showTypingAnimation && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 0.15 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 2, ease: "easeInOut", delay: 1 }}
+                className="absolute bottom-10 right-10 z-10"
+              >
+                <motion.div 
+                  className="text-[#1D1D1D] font-bold text-4xl md:text-6xl lg:text-7xl"
+                  animate={{
+                    textShadow: [
+                      '0 0 5px rgba(139,0,0,0.2)',
+                      '0 0 15px rgba(139,0,0,0.3)',
+                      '0 0 5px rgba(139,0,0,0.2)'
+                    ],
+                  }}
+                  transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                    repeatType: 'reverse'
+                  }}
+                >
+                  PROMPT<span className="text-[#2D2D2D]">OR</span>DIE
+                </motion.div>
+              </motion.div>
+            )}
+          </>
+        )}
+        
+        {/* Typing animation */}
+        {showTypingAnimation && (
           <motion.div
             initial={{ opacity: 0 }}
-            animate={{ opacity: 0.15 }}
-            transition={{ duration: 2, ease: "easeInOut", delay: 1 }}
-            className="absolute bottom-10 right-10 z-10"
+            animate={{ opacity: 1 }}
+            className="text-center z-20"
           >
+            <div className="relative">
+              <motion.h1 
+                className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-mono font-bold text-[#8B0000]"
+              >
+                {typedText}
+                <span className="inline-block h-8 w-1 ml-1 bg-[#8B0000] animate-pulse"></span>
+              </motion.h1>
+            </div>
+            
             <motion.div 
-              className={`text-[#1D1D1D] font-bold text-4xl md:text-6xl lg:text-7xl`}
-              animate={{
-                textShadow: [
-                  '0 0 5px rgba(139,0,0,0.2)',
-                  '0 0 15px rgba(139,0,0,0.3)',
-                  '0 0 5px rgba(139,0,0,0.2)'
-                ],
-              }}
-              transition={{
-                duration: 2,
-                repeat: Infinity,
-                repeatType: 'reverse'
-              }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: finalText.length * (typingSpeed/1000) + 1, duration: 0.8 }}
+              className="mt-12 flex flex-col sm:flex-row gap-4 justify-center"
             >
-              PROMPT<span className="text-[#2D2D2D]">OR</span>DIE
+              <Button 
+                asChild
+                className="bg-[#8B0000]/90 hover:bg-[#8B0000] text-white border border-[#8B0000]/60 px-6 py-6 text-lg h-auto shadow-[0_0_15px_rgba(139,0,0,0.3)]"
+              >
+                <Link to="/auth">Enter The Circle</Link>
+              </Button>
+              <Button 
+                asChild
+                variant="outline" 
+                className="border-[#8B0000]/40 text-[#8B0000] hover:bg-[#8B0000]/10 px-6 py-6 text-lg h-auto"
+              >
+                <Link to="/auth?tab=register">Join The Order</Link>
+              </Button>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
       
       {/* Mysterious floating dust particles for atmosphere */}
-      <div className="absolute inset-0 pointer-events-none">
+      <div className="absolute inset-0 pointer-events-none z-0">
         {Array.from({ length: 50 }).map((_, i) => (
           <div
             key={`dust-${i}`}
