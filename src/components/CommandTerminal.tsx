@@ -45,6 +45,10 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
     { text: "Available commands:", isWarning: true },
     { text: "  login <email> <password> - Access your account", isWarning: true },
     { text: "  register <handle> <email> <password> - Join the circle", isWarning: true },
+    { text: "  connect - Connect your wallet", isWarning: true },
+    { text: "  buy <amount> - Buy $POD tokens", isWarning: true },
+    { text: "  sell <amount> - Sell $POD tokens", isWarning: true },
+    { text: "  token - View $POD token info", isWarning: true },
     { text: "  help - View all available commands", isWarning: true },
     { text: "" }
   ]);
@@ -60,6 +64,12 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
   // Price history for the chart
   const [priceHistory, setPriceHistory] = useState<PriceHistory[]>([]);
   const maxHistoryPoints = 20; // Maximum number of points to display on the chart
+  
+  // Wallet state
+  const [walletConnected, setWalletConnected] = useState(false);
+  const [walletAddress, setWalletAddress] = useState('');
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [podBalance, setPodBalance] = useState(0);
   
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
@@ -319,6 +329,15 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
       case 'token':
         showTokenInfo();
         break;
+      case 'connect':
+        handleConnectWallet();
+        break;
+      case 'buy':
+        handleBuyTokens(args.slice(1));
+        break;
+      case 'sell':
+        handleSellTokens(args.slice(1));
+        break;
       case 'exit':
         onOpenChange(false);
         break;
@@ -331,6 +350,200 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
     
     // Reset input
     setInput('');
+  };
+
+  // Handle wallet connection
+  const handleConnectWallet = () => {
+    if (walletConnected) {
+      setOutputLines(prev => [...prev, { 
+        text: "Wallet already connected.", 
+        isWarning: true 
+      }, {
+        text: `Address: ${walletAddress}`,
+        isSuccess: true
+      }, {
+        text: `Balance: ${walletBalance.toFixed(2)} SOL / ${podBalance.toFixed(2)} $POD`,
+        isSuccess: true
+      }]);
+      return;
+    }
+    
+    setOutputLines(prev => [...prev, { 
+      text: "Connecting to wallet...", 
+      isWarning: true 
+    }]);
+    
+    // Simulate wallet connection
+    setTimeout(() => {
+      // Generate random wallet address
+      const randomAddr = 'sokp' + Math.random().toString(36).substring(2, 6) + '...' + Math.random().toString(36).substring(2, 6);
+      const randomSol = +(Math.random() * 10 + 0.5).toFixed(2);
+      
+      setWalletConnected(true);
+      setWalletAddress(randomAddr);
+      setWalletBalance(randomSol);
+      setPodBalance(0);
+      
+      setOutputLines(prev => [...prev, { 
+        text: "Wallet connected successfully!", 
+        isSuccess: true 
+      }, {
+        text: `Address: ${randomAddr}`,
+        isSuccess: true
+      }, {
+        text: `Balance: ${randomSol.toFixed(2)} SOL / 0.00 $POD`,
+        isSuccess: true
+      }]);
+      
+      toast({
+        title: "Wallet Connected",
+        description: `Connected to ${randomAddr}`
+      });
+    }, 1500);
+  };
+  
+  // Handle buying $POD tokens
+  const handleBuyTokens = (args: string[]) => {
+    if (!walletConnected) {
+      setOutputLines(prev => [...prev, { 
+        text: "ERROR: No wallet connected. Use 'connect' command first.", 
+        isError: true 
+      }]);
+      return;
+    }
+    
+    if (args.length === 0) {
+      setOutputLines(prev => [...prev, { 
+        text: "Error: Amount required. Usage: buy <amount>", 
+        isError: true 
+      }]);
+      return;
+    }
+    
+    const amount = parseFloat(args[0]);
+    
+    if (isNaN(amount) || amount <= 0) {
+      setOutputLines(prev => [...prev, { 
+        text: "Error: Invalid amount. Please provide a positive number.", 
+        isError: true 
+      }]);
+      return;
+    }
+    
+    if (amount > walletBalance) {
+      setOutputLines(prev => [...prev, { 
+        text: `Error: Insufficient balance. You have ${walletBalance.toFixed(2)} SOL.`, 
+        isError: true 
+      }]);
+      return;
+    }
+    
+    const podAmount = +(amount / tokenData.price * 0.98).toFixed(2); // 2% slippage
+    
+    setOutputLines(prev => [...prev, { 
+      text: `Buying ${podAmount.toFixed(2)} $POD for ${amount.toFixed(2)} SOL...`, 
+      isWarning: true 
+    }]);
+    
+    // Simulate transaction
+    setTimeout(() => {
+      setWalletBalance(prev => +(prev - amount).toFixed(2));
+      setPodBalance(prev => +(prev + podAmount).toFixed(2));
+      
+      setOutputLines(prev => [...prev, { 
+        text: "Transaction successful!", 
+        isSuccess: true 
+      }, {
+        text: `You purchased ${podAmount.toFixed(2)} $POD tokens.`,
+        isSuccess: true
+      }, {
+        text: `New balance: ${(walletBalance - amount).toFixed(2)} SOL / ${(podBalance + podAmount).toFixed(2)} $POD`,
+        isSuccess: true
+      }]);
+      
+      toast({
+        title: "Purchase Successful",
+        description: `Bought ${podAmount.toFixed(2)} $POD`
+      });
+      
+      // Update token data slightly to reflect the purchase (small price impact)
+      setTokenData(prev => ({
+        ...prev,
+        price: +(prev.price * (1 + (amount / 1000))).toFixed(2)
+      }));
+    }, 2000);
+  };
+  
+  // Handle selling $POD tokens
+  const handleSellTokens = (args: string[]) => {
+    if (!walletConnected) {
+      setOutputLines(prev => [...prev, { 
+        text: "ERROR: No wallet connected. Use 'connect' command first.", 
+        isError: true 
+      }]);
+      return;
+    }
+    
+    if (args.length === 0) {
+      setOutputLines(prev => [...prev, { 
+        text: "Error: Amount required. Usage: sell <amount>", 
+        isError: true 
+      }]);
+      return;
+    }
+    
+    const amount = parseFloat(args[0]);
+    
+    if (isNaN(amount) || amount <= 0) {
+      setOutputLines(prev => [...prev, { 
+        text: "Error: Invalid amount. Please provide a positive number.", 
+        isError: true 
+      }]);
+      return;
+    }
+    
+    if (amount > podBalance) {
+      setOutputLines(prev => [...prev, { 
+        text: `Error: Insufficient balance. You have ${podBalance.toFixed(2)} $POD.`, 
+        isError: true 
+      }]);
+      return;
+    }
+    
+    const solAmount = +(amount * tokenData.price * 0.98).toFixed(2); // 2% slippage
+    
+    setOutputLines(prev => [...prev, { 
+      text: `Selling ${amount.toFixed(2)} $POD for ${solAmount.toFixed(2)} SOL...`, 
+      isWarning: true 
+    }]);
+    
+    // Simulate transaction
+    setTimeout(() => {
+      setPodBalance(prev => +(prev - amount).toFixed(2));
+      setWalletBalance(prev => +(prev + solAmount).toFixed(2));
+      
+      setOutputLines(prev => [...prev, { 
+        text: "Transaction successful!", 
+        isSuccess: true 
+      }, {
+        text: `You sold ${amount.toFixed(2)} $POD tokens.`,
+        isSuccess: true
+      }, {
+        text: `New balance: ${(walletBalance + solAmount).toFixed(2)} SOL / ${(podBalance - amount).toFixed(2)} $POD`,
+        isSuccess: true
+      }]);
+      
+      toast({
+        title: "Sale Successful",
+        description: `Sold ${amount.toFixed(2)} $POD`
+      });
+      
+      // Update token data slightly to reflect the sale (small price impact)
+      setTokenData(prev => ({
+        ...prev,
+        price: +(prev.price * (1 - (amount / 1000))).toFixed(2)
+      }));
+    }, 2000);
   };
 
   // Show token info as a command
@@ -893,9 +1106,14 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
       { text: "  generate                  - Generate prompt from blocks" },
       { text: "  export                    - Export current prompt" },
       { text: "" },
+      { text: "Token & Wallet:" },
+      { text: "  connect                   - Connect your wallet" },
+      { text: "  buy <amount>              - Buy $POD tokens" },
+      { text: "  sell <amount>             - Sell $POD tokens" },
+      { text: "  token                     - Show $POD token info" },
+      { text: "" },
       { text: "System:" },
       { text: "  status                    - Show system status" },
-      { text: "  token                     - Show $POD token info" },
       { text: "  help                      - Show this help message" },
       { text: "  clear                     - Clear terminal output" },
       { text: "  exit                      - Close terminal" },
@@ -965,7 +1183,8 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
     const commands = [
       'help', 'clear', 'goto', 'cd', 'login', 'logout', 'register',
       'dashboard', 'gallery', 'docs', 'create', 'list', 'generate',
-      'export', 'whoami', 'exit', 'status', 'token'
+      'export', 'whoami', 'exit', 'status', 'token', 'connect',
+      'buy', 'sell'
     ];
     
     const matches = commands.filter(cmd => cmd.startsWith(input));
