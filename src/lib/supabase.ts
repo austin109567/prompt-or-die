@@ -1,14 +1,10 @@
+
 import { createClient } from '@supabase/supabase-js';
 import { Database } from './database.types';
 
-// Support both browser and Node environments
-const metaEnv = typeof import.meta !== 'undefined' ? (import.meta as any).env ?? {} : {};
-const supabaseUrl = (metaEnv.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL) as string;
-const supabaseAnonKey = (metaEnv.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY) as string;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Missing Supabase environment variables. Please check your configuration.');
-}
+// Use Vite environment variables for browser environment
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://nhghudkseqdmgajcwybz.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5oZ2h1ZGtzZXFkbWdhamN3eWJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwOTAzMjUsImV4cCI6MjA2NDY2NjMyNX0.zE_Lan3ZCZPWnF4MiVwRkNlz0aSOn8DCvkBhS64gYiU';
 
 export const supabase = createClient<Database>(
   supabaseUrl,
