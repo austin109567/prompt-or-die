@@ -9,7 +9,145 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      exports: {
+        Row: {
+          content: string
+          created_at: string | null
+          format: string
+          id: string
+          project_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          format: string
+          id?: string
+          project_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          format?: string
+          id?: string
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exports_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      personas: {
+        Row: {
+          created_by: string | null
+          id: string
+          name: string
+          tone_blocks: string[]
+          traits: string[]
+        }
+        Insert: {
+          created_by?: string | null
+          id?: string
+          name: string
+          tone_blocks?: string[]
+          traits?: string[]
+        }
+        Update: {
+          created_by?: string | null
+          id?: string
+          name?: string
+          tone_blocks?: string[]
+          traits?: string[]
+        }
+        Relationships: []
+      }
+      projects: {
+        Row: {
+          created_at: string | null
+          id: string
+          last_modified: string | null
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          last_modified?: string | null
+          name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          last_modified?: string | null
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      prompt_blocks: {
+        Row: {
+          id: string
+          label: string
+          order: number
+          project_id: string
+          type: string
+          user_id: string
+          value: string
+        }
+        Insert: {
+          id?: string
+          label: string
+          order?: number
+          project_id: string
+          type: string
+          user_id: string
+          value: string
+        }
+        Update: {
+          id?: string
+          label?: string
+          order?: number
+          project_id?: string
+          type?: string
+          user_id?: string
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prompt_blocks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      users: {
+        Row: {
+          created_at: string | null
+          email: string
+          handle: string
+          id: string
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          handle: string
+          id: string
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          handle?: string
+          id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

@@ -169,6 +169,7 @@ const ProjectEditor = () => {
         const blocksToInsert = updatedBlocks.map((block, index) => ({
           id: block.id,
           project_id: projectId,
+          user_id: user.id,
           type: block.type,
           label: block.label,
           value: block.value,
