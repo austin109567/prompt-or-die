@@ -1,8 +1,7 @@
-import Header from "@/components/Header";
-import CultHero from "@/components/CultHero";
 import { useAuth } from "@/hooks/use-auth";
 import { useNavigate } from "react-router-dom";
 import { useEffect } from "react";
+import AnimatedLandingPage from "@/components/AnimatedLandingPage";
 
 const Index = () => {
   const { isAuthenticated } = useAuth();
@@ -17,8 +16,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <Header />
-      <CultHero />
+      <AnimatedLandingPage />
     </div>
   );
 };
