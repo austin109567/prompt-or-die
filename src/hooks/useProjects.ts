@@ -27,7 +27,7 @@ export const useProjects = () => {
     try {
       const { data: projectsData, error: projectsError } = await supabase
         .from('projects')
-        .select('id, name, created_at, last_modified, user_id')
+        .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
         

@@ -17,13 +17,16 @@ export async function signUp(email: string, password: string, handle: string) {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`
+      }
     });
 
     if (error) {
       throw error;
     }
 
-    // Insert user data into the public.users table
+    // Insert user data into the public.users table after successful auth signup
     if (data.user) {
       const { error: profileError } = await supabase
         .from('users')
@@ -34,7 +37,8 @@ export async function signUp(email: string, password: string, handle: string) {
         });
 
       if (profileError) {
-        throw profileError;
+        console.error('Profile creation error:', profileError);
+        // Don't throw here as the auth user was created successfully
       }
     }
 

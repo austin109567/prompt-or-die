@@ -1,8 +1,10 @@
+
+import React from 'react';
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Plus, Shuffle, Keyboard, PuzzleIcon } from "lucide-react";
-import { PromptBlockProps } from "./PromptBlock";
-import BlockList from "./BlockList";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Plus, Shuffle, Keyboard, PenTool } from 'lucide-react';
+import { PromptBlockProps } from './PromptBlock';
+import BlockList from './BlockList';
 
 interface BuilderPanelProps {
   blocks: PromptBlockProps[];
@@ -36,65 +38,58 @@ const BuilderPanel = ({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="bg-primary/20 h-8 w-8 rounded-md flex items-center justify-center border border-primary/30">
-            <PuzzleIcon className="h-4 w-4 text-primary" />
+            <PenTool className="h-4 w-4 text-primary" />
           </div>
           <h2 className="text-xl font-bold">Prompt Builder</h2>
         </div>
-        <div className="flex space-x-2">
-          <Button 
-            onClick={onShowKeyboardHelp}
-            variant="ghost"
-            size="sm"
-            className="h-9 px-2.5 text-muted-foreground hover:text-foreground"
-            title="Keyboard shortcuts"
-          >
-            <Keyboard className="h-4 w-4 mr-1.5" />
-            <span className="hidden sm:inline">Shortcuts</span>
-          </Button>
-          <Button 
-            onClick={onShuffleBlocks}
+        
+        <div className="flex gap-2">
+          <Button
             variant="outline"
             size="sm"
-            className="h-9 border-muted hover:border-primary/50"
-            disabled={blocks.length < 2}
+            onClick={onShuffleBlocks}
+            className="border-muted hover:border-primary/50"
           >
-            <Shuffle className="h-4 w-4 mr-1.5" />
-            <span className="hidden sm:inline">Shuffle</span>
+            <Shuffle className="h-4 w-4 mr-2" />
+            Shuffle
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onShowKeyboardHelp}
+            className="border-muted hover:border-primary/50"
+          >
+            <Keyboard className="h-4 w-4 mr-2" />
+            Shortcuts
           </Button>
           <Button 
             onClick={onAddBlock}
-            className="bg-primary hover:bg-primary/90 h-9"
             size="sm"
+            className="bg-primary hover:bg-primary/90"
           >
-            <Plus className="h-4 w-4 mr-1.5" />
+            <Plus className="h-4 w-4 mr-2" />
             Add Block
           </Button>
         </div>
       </div>
 
-      <div className="space-y-4 max-h-[calc(100vh-300px)] overflow-y-auto pr-2 scrollbar-thin">
-        {blocks.length === 0 ? (
-          <Card className="p-8 text-center border-dashed bg-muted/10">
-            <PuzzleIcon className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-            <p className="text-muted-foreground mb-4">Start building your prompt by adding blocks</p>
-            <Button onClick={onAddBlock} variant="outline" className="border-primary/30 text-primary hover:bg-primary/10">
-              <Plus className="h-4 w-4 mr-2" />
-              Add your first block
-            </Button>
-          </Card>
-        ) : (
+      <Card className="border border-border/60 bg-card/90 backdrop-blur-sm">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg">Prompt Blocks</CardTitle>
+        </CardHeader>
+        <CardContent>
           <BlockList
             blocks={blocks}
-            onRemove={onRemoveBlock}
-            onUpdate={onUpdateBlock}
-            onDuplicate={onDuplicateBlock}
+            onUpdateBlock={onUpdateBlock}
+            onDeleteBlock={(block) => onRemoveBlock(block.id)}
+            onDuplicateBlock={onDuplicateBlock}
             onDragStart={onDragStart}
             onDragOver={onDragOver}
             onDrop={onDrop}
             draggedIndex={draggedIndex}
           />
-        )}
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

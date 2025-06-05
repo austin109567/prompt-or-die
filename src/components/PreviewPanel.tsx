@@ -1,3 +1,4 @@
+
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -65,7 +66,7 @@ const PreviewPanel = ({
 
           <Separator className="bg-border/50" />
 
-          <AIPreview promptText={generatedPrompt} />
+          <AIPreview prompt={generatedPrompt} />
         </div>
       </Card>
     </div>
