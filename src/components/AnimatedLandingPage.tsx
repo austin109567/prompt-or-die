@@ -18,68 +18,129 @@ const enigmaticVerses = [
   "As it was written, so shall it be rendered.",
 ];
 
+interface VerseProps {
+  id: string;
+  text: string;
+  position: { x: number; y: number };
+  duration: number;
+  delay: number;
+}
+
 const AnimatedLandingPage = () => {
   const { theme } = useTheme();
-  const [currentVerseIndex, setCurrentVerseIndex] = useState(-1);
-  const [visibleVerses, setVisibleVerses] = useState<{id: string, text: string}[]>([]);
+  const [visibleVerses, setVisibleVerses] = useState<VerseProps[]>([]);
   const [showPromptOrDie, setShowPromptOrDie] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const nextVerseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutsRef = useRef<NodeJS.Timeout[]>([]);
+  const versesUsedRef = useRef<Set<number>>(new Set());
 
-  // Start showing verses after component mounts
-  useEffect(() => {
-    // Start with a slight delay
-    const initialDelay = setTimeout(() => {
-      showNextVerse();
-    }, 1000);
-
-    // Show "PROMPT OR DIE" after all verses have cycled through
-    const promptOrDieDelay = setTimeout(() => {
-      setShowPromptOrDie(true);
-    }, enigmaticVerses.length * 6000 + 3000);
-
-    return () => {
-      clearTimeout(initialDelay);
-      clearTimeout(promptOrDieDelay);
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      if (nextVerseTimeoutRef.current) clearTimeout(nextVerseTimeoutRef.current);
-    };
-  }, []);
-
-  const showNextVerse = () => {
-    const nextIndex = (currentVerseIndex + 1) % enigmaticVerses.length;
-    setCurrentVerseIndex(nextIndex);
+  // Calculate a random position within the container
+  const getRandomPosition = () => {
+    if (!containerRef.current) return { x: 0, y: 0 };
     
-    const newVerse = {
-      id: `verse-${Date.now()}`,
-      text: enigmaticVerses[nextIndex]
+    const width = containerRef.current.clientWidth;
+    const height = containerRef.current.clientHeight;
+    
+    // Keep verses within a reasonable area, not too close to edges
+    const padding = 100;
+    return {
+      x: Math.random() * (width - 2 * padding) + padding - width/2,  // Centered around middle
+      y: Math.random() * (height - 2 * padding) + padding - height/2,  // Centered around middle
+    };
+  };
+  
+  // Get a random verse that hasn't been used recently
+  const getRandomVerseIndex = () => {
+    // If all verses have been used, reset the tracking
+    if (versesUsedRef.current.size >= enigmaticVerses.length - 1) {
+      versesUsedRef.current.clear();
+    }
+    
+    let index;
+    do {
+      index = Math.floor(Math.random() * enigmaticVerses.length);
+    } while (versesUsedRef.current.has(index));
+    
+    versesUsedRef.current.add(index);
+    return index;
+  };
+
+  // Create and schedule a new verse to appear
+  const addVerse = () => {
+    // Random timing parameters
+    const displayDuration = 7000 + Math.random() * 5000; // 7-12 seconds on screen
+    const fadeInOutDuration = 1500 + Math.random() * 1000; // 1.5-2.5 seconds for fade
+    
+    const verseIndex = getRandomVerseIndex();
+    const newVerse: VerseProps = {
+      id: `verse-${Date.now()}-${Math.random()}`,
+      text: enigmaticVerses[verseIndex],
+      position: getRandomPosition(),
+      duration: fadeInOutDuration,
+      delay: 0,
     };
     
     setVisibleVerses(prev => [...prev, newVerse]);
     
-    // Schedule the verse to be removed
-    timeoutRef.current = setTimeout(() => {
-      setVisibleVerses(prev => prev.filter(verse => verse.id !== newVerse.id));
-    }, 5000); // Verse stays visible for 5 seconds
+    // Schedule removal of this verse
+    const removeTimeout = setTimeout(() => {
+      setVisibleVerses(prev => prev.filter(v => v.id !== newVerse.id));
+    }, displayDuration);
     
-    // Schedule the next verse
-    nextVerseTimeoutRef.current = setTimeout(() => {
-      showNextVerse();
-    }, 6000); // New verse every 6 seconds
+    timeoutsRef.current.push(removeTimeout);
+    
+    // Schedule the next verse with some randomized delay
+    const nextVerseDelay = 3000 + Math.random() * 4000; // 3-7 seconds between verses
+    const nextVerseTimeout = setTimeout(addVerse, nextVerseDelay);
+    timeoutsRef.current.push(nextVerseTimeout);
   };
+
+  // Initialize the verse display sequence
+  useEffect(() => {
+    // Add first few verses with staggered timing
+    const initialDelays = [1000, 4000, 8000, 13000];
+    
+    initialDelays.forEach((delay, index) => {
+      const timeout = setTimeout(() => {
+        addVerse();
+      }, delay);
+      timeoutsRef.current.push(timeout);
+    });
+    
+    // Show "PROMPT OR DIE" after a reasonable delay
+    const promptOrDieDelay = setTimeout(() => {
+      setShowPromptOrDie(true);
+    }, 20000); // 20 seconds
+    
+    timeoutsRef.current.push(promptOrDieDelay);
+    
+    // Cleanup timeouts on unmount
+    return () => {
+      timeoutsRef.current.forEach(timeout => clearTimeout(timeout));
+    };
+  }, []);
+  
+  // Update container dimensions on resize
+  useEffect(() => {
+    const handleResize = () => {
+      // This will cause a re-render, updating position calculations
+      setVisibleVerses(prev => [...prev]);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   return (
     <div 
       ref={containerRef} 
-      className="w-full min-h-screen bg-black relative overflow-hidden flex flex-col items-center justify-center"
+      className="w-full min-h-screen bg-black relative overflow-hidden flex items-center justify-center"
     >
       {/* Subtle crimson radial gradient */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(139,0,0,0.1),transparent_70%)]"></div>
       
-      {/* Central container for verses */}
-      <div className="relative z-10 flex flex-col items-center justify-center w-full max-w-2xl mx-auto px-4">
-        {/* Floating verses - now centered */}
+      {/* Floating verses positioned across the screen */}
+      <div className="relative w-full h-full flex items-center justify-center">
         <AnimatePresence>
           {visibleVerses.map(verse => (
             <motion.p
@@ -87,8 +148,14 @@ const AnimatedLandingPage = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 0.7 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.7, ease: "easeInOut" }}
-              className="absolute font-serif italic text-white/70 text-sm md:text-base lg:text-lg leading-relaxed max-w-md text-center"
+              transition={{ 
+                duration: verse.duration / 1000, 
+                ease: "easeInOut"
+              }}
+              className="absolute font-serif italic text-white/70 text-sm md:text-base lg:text-lg leading-relaxed max-w-xs text-center pointer-events-none"
+              style={{
+                transform: `translate(${verse.position.x}px, ${verse.position.y}px)`,
+              }}
             >
               {verse.text}
             </motion.p>
