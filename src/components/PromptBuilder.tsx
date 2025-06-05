@@ -98,32 +98,67 @@ const PromptBuilder = ({ initialBlocks = [], onBlocksChange }: PromptBuilderProp
     }).join('\n\n');
   };
 
+  // Handler functions that match the expected signatures
+  const handleAddBlock = (block: PromptBlockProps) => {
+    setBlocks([...blocks, block]);
+    toast({
+      title: "Block added",
+      description: `${block.type} block has been added to your prompt`
+    });
+  };
+
+  const handleUpdateBlock = (block: PromptBlockProps) => {
+    setBlocks(blocks.map(b => 
+      b.id === block.id ? block : b
+    ));
+  };
+
+  const handleDeleteBlock = (block: PromptBlockProps) => {
+    setBlocks(blocks.filter(b => b.id !== block.id));
+    toast({
+      title: "Block deleted",
+      description: "Block has been removed from your prompt"
+    });
+  };
+
+  const handleDuplicateBlock = (block: PromptBlockProps) => {
+    const duplicatedBlock: PromptBlockProps = {
+      ...block,
+      id: Math.random().toString(36).substring(2, 15),
+      label: `${block.label} (Copy)`
+    };
+    
+    const blockIndex = blocks.findIndex(b => b.id === block.id);
+    const newBlocks = [...blocks];
+    newBlocks.splice(blockIndex + 1, 0, duplicatedBlock);
+    setBlocks(newBlocks);
+    
+    toast({
+      title: "Block duplicated",
+      description: "Block has been duplicated successfully"
+    });
+  };
+
   return (
     <div className="flex flex-col lg:flex-row gap-6 h-full">
       <div className="flex-1">
         <BuilderPanel 
           blocks={blocks}
-          onAddBlock={addBlock}
-          onUpdateBlock={updateBlock}
-          onDeleteBlock={deleteBlock}
-          onDuplicateBlock={duplicateBlock}
+          onAddBlock={handleAddBlock}
+          onUpdateBlock={handleUpdateBlock}
+          onDeleteBlock={handleDeleteBlock}
+          onDuplicateBlock={handleDuplicateBlock}
           onMoveBlock={moveBlock}
         />
       </div>
       
       <div className="flex-1">
         <PreviewPanel 
-          blocks={blocks}
-          generatedPrompt={generatePrompt()}
+          prompt={generatePrompt()}
         />
       </div>
       
-      <KeyboardShortcuts 
-        onAddText={() => addBlock('text')}
-        onAddVariable={() => addBlock('variable')}
-        onAddInstruction={() => addBlock('instruction')}
-        onAddExample={() => addBlock('example')}
-      />
+      <KeyboardShortcuts />
     </div>
   );
 };

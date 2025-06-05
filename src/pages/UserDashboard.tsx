@@ -56,14 +56,14 @@ const UserDashboard = () => {
       setProjects(projectsData || []);
       
       // Fetch total prompt blocks count
-      const { data: blocksData, error: blocksError } = await supabase
+      const { count: blocksCount, error: blocksError } = await supabase
         .from('prompt_blocks')
-        .select('*')
+        .select('*', { count: 'exact' })
         .eq('user_id', user?.id);
         
       if (blocksError) throw blocksError;
       
-      setTotalBlocks(blocksData?.length || 0);
+      setTotalBlocks(blocksCount || 0);
     } catch (error: any) {
       console.error('Error fetching projects:', error);
       toast({
