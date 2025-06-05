@@ -214,10 +214,10 @@ const CultHero = () => {
           <h1 className={`text-4xl sm:text-6xl font-bold leading-tight tracking-tighter mb-4 transition-all duration-1000 ${
             initialized ? 'opacity-100' : 'opacity-0 translate-y-10'
           }`}>
-            <div className="glitch-text relative" data-text="PROMPT OR DIE">
-              <span className="relative text-transparent bg-clip-text bg-gradient-to-r from-primary via-accent to-red-500 bg-[length:200%_auto] animate-gradient-shift">
+            <div className="glitch-text relative">
+              <span className="relative text-transparent bg-clip-text text-primary font-bold drop-shadow-[0_0_3px_rgba(139,0,0,0.8)] filter">
                 PROMPT OR DIE
-                <span className="absolute -bottom-1 left-0 w-full h-[2px] bg-gradient-to-r from-primary via-accent to-red-500 opacity-70"></span>
+                <span className="absolute -bottom-1 left-0 w-full h-[2px] bg-gradient-to-r from-primary via-white to-primary opacity-70"></span>
               </span>
             </div>
           </h1>
