@@ -21,13 +21,21 @@ import { supabase } from '@/lib/supabase';
 import { format } from 'date-fns';
 import PromptSharing from '@/components/PromptSharing';
 
+interface Project {
+  id: string;
+  name: string;
+  created_at: string;
+  last_modified: string;
+  user_id: string;
+}
+
 const UserDashboard = () => {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   
   const [isLoading, setIsLoading] = useState(true);
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [totalBlocks, setTotalBlocks] = useState(0);
   
   useEffect(() => {
@@ -56,14 +64,14 @@ const UserDashboard = () => {
       setProjects(projectsData || []);
       
       // Fetch total prompt blocks count
-      const { count: blocksCount, error: blocksError } = await supabase
+      const { count, error: blocksError } = await supabase
         .from('prompt_blocks')
-        .select('*', { count: 'exact' })
+        .select('*', { count: 'exact', head: true })
         .eq('user_id', user?.id);
         
       if (blocksError) throw blocksError;
       
-      setTotalBlocks(blocksCount || 0);
+      setTotalBlocks(count || 0);
     } catch (error: any) {
       console.error('Error fetching projects:', error);
       toast({
