@@ -993,13 +993,43 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
         <div 
           className="terminal-window flex flex-col h-full w-full rounded-lg bg-black overflow-hidden font-mono relative"
         >
-          {/* Candlestick chart in header area */}
-          <div className="relative z-10 w-full h-12 overflow-hidden bg-black">
+          {/* Terminal header with token info and chart */}
+          <div className="terminal-header flex items-center justify-between p-2 bg-gradient-to-r from-black to-[#8B0000]/10 border-b border-[#8B0000]/30 relative h-12">
+            {/* Terminal controls */}
+            <div className="flex items-center gap-2 z-10">
+              <div className="flex space-x-2">
+                <div 
+                  className="h-3 w-3 rounded-full bg-red-500/70 cursor-pointer hover:bg-red-500"
+                  onClick={() => onOpenChange(false)}
+                ></div>
+                <div className="h-3 w-3 rounded-full bg-yellow-500/70"></div>
+                <div className="h-3 w-3 rounded-full bg-green-500/70"></div>
+              </div>
+            </div>
+            
+            {/* Token stats */}
+            <div className="absolute inset-0 flex items-center justify-center z-10">
+              <div className="flex items-center gap-4 text-xs">
+                <span className="text-[#8B0000]/90 font-bold">$POD</span>
+                <span className="text-white/80">${tokenData.price.toFixed(2)}</span>
+                <span className={`${tokenData.change24h >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                  {tokenData.change24h >= 0 ? '+' : ''}{tokenData.change24h.toFixed(1)}%
+                </span>
+                <span className="text-white/60">MCap: ${(tokenData.marketCap/1000000).toFixed(2)}M</span>
+                <span className="text-white/60 text-xs">Chain: Solana</span>
+                <span className="text-white/60 text-xs">sokp...7j29</span>
+              </div>
+            </div>
+            
+            {/* Version info */}
+            <div className="text-xs text-[#8B0000]/70 mr-2 z-10">v1.0.0</div>
+            
+            {/* Canvas for candlestick chart as background */}
             <canvas 
               ref={chartCanvasRef}
               width="800" 
               height="48"
-              className="w-full h-full"
+              className="absolute inset-0 w-full h-full opacity-40"
             />
           </div>
           
