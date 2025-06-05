@@ -24,7 +24,10 @@ interface TokenData {
 
 // History of price data for the chart
 interface PriceHistory {
-  price: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
   time: string; // formatted time
 }
 
@@ -56,7 +59,7 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
   
   // Price history for the chart
   const [priceHistory, setPriceHistory] = useState<PriceHistory[]>([]);
-  const maxHistoryPoints = 30; // Maximum number of points to display on the chart
+  const maxHistoryPoints = 20; // Maximum number of points to display on the chart
   
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
@@ -76,19 +79,28 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
   useEffect(() => {
     if (!isOpen) return;
     
-    // Create initial price history
+    // Create initial price history with candlestick data
     const now = new Date();
     const initialHistory: PriceHistory[] = [];
     
+    let basePrice = 2.47;
     for (let i = maxHistoryPoints - 1; i >= 0; i--) {
       const time = new Date(now.getTime() - (i * 7 * 60 * 1000)); // 7 minute intervals
-      const basePrice = 2.47;
-      // Create some variation to make the chart look more realistic
-      const randomVariation = (Math.random() - 0.5) * 0.4; 
-      const historicalPrice = +(basePrice + randomVariation).toFixed(2);
+      
+      // Create realistic candle data
+      const priceChange = (Math.random() - 0.5) * 0.3;
+      const open = basePrice;
+      const close = +(basePrice + priceChange).toFixed(2);
+      basePrice = close; // Set for next candle
+      
+      const high = +Math.max(open, close, open + Math.random() * Math.abs(priceChange) * 1.5).toFixed(2);
+      const low = +Math.min(open, close, open - Math.random() * Math.abs(priceChange) * 1.5).toFixed(2);
       
       initialHistory.push({
-        price: historicalPrice,
+        open,
+        high,
+        low,
+        close,
         time: time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
       });
     }
@@ -96,7 +108,7 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
     setPriceHistory(initialHistory);
   }, [isOpen]);
   
-  // Draw the chart whenever price history changes
+  // Draw the candlestick chart whenever price history changes
   useEffect(() => {
     if (!chartCanvasRef.current || priceHistory.length === 0) return;
     
@@ -111,9 +123,9 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
       // Get min and max prices for scaling
-      const prices = priceHistory.map(p => p.price);
-      let minPrice = Math.min(...prices) * 0.995; // Add 0.5% padding
-      let maxPrice = Math.max(...prices) * 1.005;
+      const allPrices = priceHistory.flatMap(p => [p.high, p.low]);
+      let minPrice = Math.min(...allPrices) * 0.995; // Add 0.5% padding
+      let maxPrice = Math.max(...allPrices) * 1.005;
       
       // Ensure there's always some range even if price is flat
       if (maxPrice - minPrice < 0.1) {
@@ -122,54 +134,81 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
       }
       
       const range = maxPrice - minPrice;
-      const barWidth = canvas.width / priceHistory.length * 0.8; // 80% of the available width
-      const barSpacing = canvas.width / priceHistory.length * 0.2; // 20% spacing
+      const candleWidth = canvas.width / priceHistory.length * 0.8; // 80% of the available width
+      const candleSpacing = canvas.width / priceHistory.length * 0.2; // 20% spacing
       
-      // Draw the bar chart
-      priceHistory.forEach((point, i) => {
-        const positiveChange = i > 0 ? point.price >= priceHistory[i-1].price : tokenData.change24h >= 0;
-        const barColor = positiveChange ? 'rgba(0, 255, 0, 0.8)' : 'rgba(255, 0, 0, 0.8)';
+      // Draw the candlestick chart
+      priceHistory.forEach((candle, i) => {
+        const x = i * (candleWidth + candleSpacing) + candleSpacing/2;
         
-        // Calculate bar position and height
-        const x = i * (barWidth + barSpacing);
-        const barHeight = ((point.price - minPrice) / range) * canvas.height;
-        const y = canvas.height - barHeight;
+        // Calculate vertical positions
+        const openY = canvas.height - ((candle.open - minPrice) / range) * canvas.height;
+        const closeY = canvas.height - ((candle.close - minPrice) / range) * canvas.height;
+        const highY = canvas.height - ((candle.high - minPrice) / range) * canvas.height;
+        const lowY = canvas.height - ((candle.low - minPrice) / range) * canvas.height;
         
-        // Draw the bar
-        ctx.fillStyle = barColor;
-        ctx.fillRect(x, y, barWidth, barHeight);
+        // Determine if this is an up or down candle
+        const isUp = candle.close >= candle.open;
+        const candleColor = isUp ? 'rgba(0, 255, 0, 0.8)' : 'rgba(255, 0, 0, 0.8)';
+        
+        // Draw the candle wick (high to low)
+        ctx.beginPath();
+        ctx.moveTo(x + candleWidth/2, highY);
+        ctx.lineTo(x + candleWidth/2, lowY);
+        ctx.strokeStyle = candleColor;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        
+        // Draw the candle body (open to close)
+        const candleHeight = Math.abs(closeY - openY);
+        const yStart = isUp ? closeY : openY;
+        
+        ctx.fillStyle = candleColor;
+        ctx.fillRect(x, yStart, candleWidth, candleHeight || 1); // Ensure at least 1px height
       });
     };
     
     drawChart();
-  }, [priceHistory, tokenData.change24h]);
+  }, [priceHistory]);
   
   // Simulate token data updates and update the price history
   useEffect(() => {
     if (!isOpen) return;
     
     const interval = setInterval(() => {
-      // Simulate live price movements by randomly adjusting values
-      const priceChange = (Math.random() - 0.5) * 0.1; // Small random change
-      const volumeChange = Math.random() * 50000;
-      const newChange = tokenData.change24h + (Math.random() - 0.5) * 0.5;
+      // Simulate live price movements
+      const lastCandle = priceHistory[priceHistory.length - 1];
+      const lastClose = lastCandle ? lastCandle.close : 2.47;
       
-      const newPrice = Math.max(0.01, +(tokenData.price + priceChange).toFixed(2));
+      const priceChange = (Math.random() - 0.5) * 0.1;
+      const newClose = +(lastClose + priceChange).toFixed(2);
       
-      setTokenData({
-        price: newPrice,
-        marketCap: Math.max(1000000, Math.floor(tokenData.marketCap + volumeChange * 10)),
-        volume24h: Math.max(100000, Math.floor(tokenData.volume24h + volumeChange)),
-        change24h: +newChange.toFixed(1)
-      });
+      // Create new candle
+      const high = +Math.max(lastClose, newClose, lastClose + Math.random() * Math.abs(priceChange) * 1.5).toFixed(2);
+      const low = +Math.min(lastClose, newClose, lastClose - Math.random() * Math.abs(priceChange) * 1.5).toFixed(2);
       
-      // Add the new price to the history
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      
+      // Update token data
+      setTokenData(prev => ({
+        price: newClose,
+        marketCap: Math.max(1000000, Math.floor(prev.marketCap + priceChange * 100000)),
+        volume24h: Math.max(100000, Math.floor(prev.volume24h + (Math.random() - 0.5) * 50000)),
+        change24h: +((newClose / 2.47 - 1) * 100).toFixed(1)
+      }));
+      
+      // Add the new candle to the history
       setPriceHistory(prev => {
-        const now = new Date();
-        const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        const updated = [...prev, {
+          open: lastClose,
+          close: newClose,
+          high,
+          low,
+          time: timeStr
+        }];
         
-        // Add the new price and remove the oldest if we exceed maxHistoryPoints
-        const updated = [...prev, { price: newPrice, time: timeStr }];
+        // Remove the oldest if we exceed maxHistoryPoints
         if (updated.length > maxHistoryPoints) {
           return updated.slice(1);
         }
@@ -178,7 +217,7 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
     }, 7000); // Update every 7 seconds
     
     return () => clearInterval(interval);
-  }, [isOpen, tokenData]);
+  }, [isOpen, priceHistory]);
   
   useEffect(() => {
     // Auto-focus the input when the dialog opens
@@ -941,11 +980,6 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
     }
   };
   
-  // Format numbers with commas for thousands
-  const formatNumber = (num: number): string => {
-    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  };
-  
   // Custom styling for terminal-like appearance
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -959,45 +993,14 @@ const CommandTerminal: React.FC<CommandTerminalProps> = ({
         <div 
           className="terminal-window flex flex-col h-full w-full rounded-lg bg-black overflow-hidden font-mono relative"
         >
-          {/* Price chart background */}
-          <div className="absolute inset-0 z-0">
+          {/* Candlestick chart in header area */}
+          <div className="relative z-10 w-full h-12 overflow-hidden bg-black">
             <canvas 
               ref={chartCanvasRef}
               width="800" 
-              height="500"
+              height="48"
               className="w-full h-full"
             />
-          </div>
-          
-          {/* Terminal header with token info */}
-          <div className="terminal-header flex items-center justify-between p-2 bg-gradient-to-r from-black to-[#8B0000]/20 border-b border-[#8B0000]/30 relative z-10">
-            <div className="flex items-center gap-2">
-              <div className="flex space-x-2">
-                <div 
-                  className="h-3 w-3 rounded-full bg-red-500/70 cursor-pointer hover:bg-red-500"
-                  onClick={() => onOpenChange(false)}
-                ></div>
-                <div className="h-3 w-3 rounded-full bg-yellow-500/70"></div>
-                <div className="h-3 w-3 rounded-full bg-green-500/70"></div>
-              </div>
-              <span className="text-xs text-[#8B0000]/70 ml-2">prompt-terminal</span>
-            </div>
-            
-            {/* Token info display */}
-            <div className="flex items-center gap-4">
-              <div className="flex items-center">
-                <span className="text-xs text-[#8B0000] font-bold">$POD:</span>
-                <span className="text-xs ml-1">${tokenData.price.toFixed(2)}</span>
-                <span className={`text-xs ml-1 ${tokenData.change24h >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                  {tokenData.change24h >= 0 ? '+' : ''}{tokenData.change24h}%
-                </span>
-              </div>
-              <div className="text-xs">
-                <span className="text-[#8B0000]/70">MCap:</span>
-                <span className="ml-1">${(tokenData.marketCap / 1000000).toFixed(2)}M</span>
-              </div>
-              <div className="text-xs text-[#8B0000]/70">v1.0.0</div>
-            </div>
           </div>
           
           {/* Terminal output area */}
