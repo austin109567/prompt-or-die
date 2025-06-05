@@ -15,54 +15,72 @@ export const supabase = createClient<Database>(
 
 // Authentication helpers
 export async function signUp(email: string, password: string, handle: string) {
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-  });
+  try {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
 
-  if (error) {
-    throw error;
-  }
-
-  // Insert user data into the public.users table
-  if (data.user) {
-    const { error: profileError } = await supabase
-      .from('users')
-      .insert({
-        id: data.user.id,
-        email,
-        handle
-      });
-
-    if (profileError) {
-      throw profileError;
+    if (error) {
+      throw error;
     }
-  }
 
-  return data;
+    // Insert user data into the public.users table
+    if (data.user) {
+      const { error: profileError } = await supabase
+        .from('users')
+        .insert({
+          id: data.user.id,
+          email,
+          handle
+        });
+
+      if (profileError) {
+        throw profileError;
+      }
+    }
+
+    return data;
+  } catch (err: any) {
+    const message = err?.message || 'Supabase sign up failed';
+    console.error('Sign up error:', err);
+    throw new Error(message);
+  }
 }
 
 export async function signIn(email: string, password: string) {
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-  if (error) {
-    throw error;
+    if (error) {
+      throw error;
+    }
+
+    return data;
+  } catch (err: any) {
+    const message = err?.message || 'Supabase sign in failed';
+    console.error('Sign in error:', err);
+    throw new Error(message);
   }
-
-  return data;
 }
 
 export async function signOut() {
-  const { error } = await supabase.auth.signOut();
-  
-  if (error) {
-    throw error;
+  try {
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      throw error;
+    }
+
+    return true;
+  } catch (err: any) {
+    const message = err?.message || 'Supabase sign out failed';
+    console.error('Sign out error:', err);
+    throw new Error(message);
   }
-  
-  return true;
 }
 
 export async function getCurrentUser() {

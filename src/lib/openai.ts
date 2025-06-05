@@ -9,13 +9,16 @@ type OpenAIResponse = {
   }[];
 };
 
-// Environment variable validation
+// Retrieve API key from localStorage (set via AIApiKeySetup) or fallback to env
 const getApiKey = () => {
-  const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+  const localStorageKey = typeof window !== "undefined" ? localStorage.getItem("openai_api_key") : null;
+  const apiKey = localStorageKey || import.meta.env.VITE_OPENAI_API_KEY;
+
   if (!apiKey) {
-    console.error("OpenAI API key is not set. Set VITE_OPENAI_API_KEY in your environment variables.");
+    console.error("OpenAI API key is missing. Provide it in localStorage or set VITE_OPENAI_API_KEY in your environment.");
     return null;
   }
+
   return apiKey;
 };
 
@@ -71,8 +74,12 @@ export const generateAIResponse = async (
     const data = await response.json() as OpenAIResponse;
     return data.choices[0].message.content;
   } catch (error: any) {
+    const message =
+      error.name === "TypeError"
+        ? "Network request failed. Check your connection."
+        : error.message || "Failed to generate response";
     console.error("Error generating AI response:", error);
-    toast.error(`Error: ${error.message || "Failed to generate response"}`);
+    toast.error(`Error: ${message}`);
     return null;
   }
 };
